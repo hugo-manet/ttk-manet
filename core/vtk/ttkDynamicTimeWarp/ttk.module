@@ -1,0 +1,9 @@
+NAME
+  ttkDynamicTimeWarp
+SOURCES
+  ttkDynamicTimeWarp.cpp
+HEADERS
+  ttkDynamicTimeWarp.h
+DEPENDS
+  dynamicTimeWarp
+  ttkAlgorithm
