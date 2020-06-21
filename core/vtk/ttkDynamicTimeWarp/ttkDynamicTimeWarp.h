@@ -1,12 +1,12 @@
-/// TODO 4: Provide your information
+/// vTODO 4: Provide your information
 ///
 /// \ingroup vtk
 /// \class ttkDynamicTimeWarp
-/// \author Your Name Here <Your Email Address Here>
-/// \date The Date Here.
+/// \author Hugo Manet <hugo.manet@ens.fr>
+/// \date 2020-06-18
 ///
 /// \brief TTK VTK-filter that wraps the ttk::DynamicTimeWarp module.
-///
+/// TODO
 /// This VTK filter uses the ttk::DynamicTimeWarp module to compute the bounding box
 /// of a vtkDataSet, which is returned as a vtkUnstructuredGrid.
 ///

@@ -1,14 +1,14 @@
-/// TODO 1: Provide your information
+/// vTODO 1: Provide your information
 ///
 /// \ingroup base
 /// \class ttk::DynamicTimeWarp
-/// \author Your Name Here <Your Email Address Here>
-/// \date The Date Here.
+/// \author Hugo Manet <hugo.manet@ens.fr>
+/// \date 2020-06-19
 ///
-/// This module defines the %DynamicTimeWarp class that computes for each vertex of a
-/// triangulation the average scalar value of itself and its direct neighbors.
+/// This module defines the %DynamicTimeWarp class that computes a discrete time warp
+/// according to a given distance matrix
 ///
-/// \b Related \b publication: \n
+/// \b Related \b publication: \n TODO
 /// 'DynamicTimeWarp'
 /// Jonas Lukasczyk and Julien Tierny.
 /// TTK Publications.
@@ -36,20 +36,7 @@ namespace ttk {
       // beginning of every msg
     };
     ~DynamicTimeWarp(){};
-
-    /**
-     * TODO 2: This method preconditions the triangulation for all operations
-     *         the algorithm of this module requires. For instance,
-     *         preconditionVertexNeighbors, preprocessBoundaryEdges, ...
-     *
-     *         Note: If the algorithm does not require a triangulation then
-     *               this method can be deleted.
-     */
-    int preconditionTriangulation(
-      ttk::AbstractTriangulation *triangulation) const {
-      return triangulation->preconditionVertexNeighbors();
-    };
-
+    
     /**
      * TODO 3: Implmentation of the algorithm.
      *
@@ -62,6 +49,7 @@ namespace ttk {
     int computeAverages(dataType *outputData,
                         const dataType *inputData,
                         const TriangulationType *triangulation) const {
+      /* REMOVED
       // start global timer
       ttk::Timer globalTimer;
 
@@ -125,7 +113,7 @@ namespace ttk {
         );
         this->printMsg(ttk::debug::Separator::L1); // horizontal '=' separator
       }
-
+      // */
       return 1; // return success
     }
 

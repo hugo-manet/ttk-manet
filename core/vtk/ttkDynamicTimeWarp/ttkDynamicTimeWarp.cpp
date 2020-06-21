@@ -88,7 +88,7 @@ int ttkDynamicTimeWarp::FillOutputPortInformation(int port, vtkInformation *info
 int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
                                vtkInformationVector **inputVector,
                                vtkInformationVector *outputVector) {
-
+  /* REMOVED
   // Get input object from input vector
   // Note: has to be a vtkDataSet as required by FillInputPortInformation
   vtkDataSet *inputDataSet = vtkDataSet::GetData(inputVector[0]);
@@ -153,7 +153,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
     = ttkAlgorithm::GetTriangulation(inputDataSet);
 
   // Precondition the triangulation (e.g., enable fetching of vertex neighbors)
-  this->preconditionTriangulation(triangulation); // implemented in base class
+  //this->preconditionTriangulation(triangulation); // implemented in base class
 
   printMsg("Starting computation on array `"
            + std::string(inputArray->GetName()) + "'...");
@@ -178,6 +178,6 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
 
   // add to the output point data the computed output array
   outputDataSet->GetPointData()->AddArray(outputArray);
-
+  // */
   return 1;
 }
