@@ -41,18 +41,49 @@ class TTKDYNAMICTIMEWARP_EXPORT ttkDynamicTimeWarp
 {
 private:
   /**
-   * TODO 5: Add all filter parameters only as private member variables and
+   * vTODO 5: Add all filter parameters only as private member variables and
    *         initialize them here.
    */
-  std::string OutputArrayName{"AveragedScalarField"};
+  std::string OutputPathName{"WarpingPath"};
+  std::string OutputMatchingName{"TimeWarpMatching"};
+  /** Configures the weights on the path 
+   */
+  double DeletionCost{0.5};
+
+  /** Copy filter mechanism from MatrixToHeatMap
+   */
+  bool SelectFieldsWithRegexp{false};
+  std::string RegexpString{".*"};
+  std::vector<std::string> ScalarFields;
 
 public:
   /**
-   * TODO 6: Automatically generate getters and setters of filter
+   * vTODO 6: Automatically generate getters and setters of filter
    *         parameters via vtkMacros.
    */
-  vtkSetMacro(OutputArrayName, std::string);
-  vtkGetMacro(OutputArrayName, std::string);
+  vtkSetMacro(OutputPathName, std::string);
+  vtkGetMacro(OutputPathName, std::string);
+  vtkSetMacro(OutputMatchingName, std::string);
+  vtkGetMacro(OutputMatchingName, std::string);
+  vtkSetMacro(DeletionCost, double);
+  vtkGetMacro(DeletionCost, double);
+
+  /** TODO maybe put these two in .cpp ?
+   */
+  void SetScalarFields(const std::string &s) {
+    ScalarFields.emplace_back(s);
+    Modified();
+  }
+  void ClearScalarFields() {
+    ScalarFields.clear();
+    Modified();
+  }
+
+  vtkSetMacro(SelectFieldsWithRegexp, bool);
+  vtkGetMacro(SelectFieldsWithRegexp, bool);
+
+  vtkSetMacro(RegexpString, std::string);
+  vtkGetMacro(RegexpString, std::string);
 
   /**
    * This static method and the macro below are VTK conventions on how to
