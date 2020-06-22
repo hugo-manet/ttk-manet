@@ -28,29 +28,73 @@
                     <Documentation>A distance matrix between the points of the two sequences.</Documentation>
                 </InputProperty>
 
-            <!-- INPUT PARAMETER WIDGETS -->
+    <!-- INPUT PARAMETER WIDGETS -->
+      <IntVectorProperty
+        name="SelectFieldsWithRegexp"
+        label="Select Fields with a Regexp"
+        command="SetSelectFieldsWithRegexp"
+        number_of_elements="1"
+        default_values="0"
+        panel_visibility="advanced">
+        <BooleanDomain name="bool"/>
+        <Documentation>
+          Select input scalar fields matching a regular expression.
+        </Documentation>
+      </IntVectorProperty>
 
-                <!-- This is the VTK way of selecting arrays for processing by calling the SetInputArrayToProcess method -->
-                <!-- (see ttkDynamicTimeWarp.cpp for details) -->
-                <!-- TODO check for deletion. Maybe replace with MatrixToHeatMap pipeline ?
-                     <StringVectorProperty name="InputArray" label="Input Array" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5">
-                    <ArrayListDomain attribute_type="Scalars" name="array_list">
-                        <RequiredProperties>
-                            <Property function="Input" name="Input" />
-                        </RequiredProperties>
-                    </ArrayListDomain>
-                    <Documentation>The scalar array that will be used to compute averages.</Documentation>
-                </StringVectorProperty>
-                -->
+      <StringVectorProperty command="SetScalarFields"
+        clean_command="ClearScalarFields"
+        label="Input Columns"
+        name="ScalarFields"
+        number_of_elements="0"
+        default_values="1"
+        number_of_elements_per_command="1"
+        repeat_command="1">
+        <ArrayListDomain name="array_list"
+          default_values="1">
+          <RequiredProperties>
+            <Property name="Input"
+              function="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Hints>
+          <NoDefault />
+          <PropertyWidgetDecorator type="GenericDecorator"
+                                   mode="visibility"
+                                   property="SelectFieldsWithRegexp"
+                                   value="0" />
+        </Hints>
+        <Documentation>
+          Select the scalar fields to process.
+        </Documentation>
+      </StringVectorProperty>
 
-                <!-- Create a UI group that contains all input parameter widgets (here only one) -->
-                
-                <!-- TODO same as above
-                <PropertyGroup panel_widget="Line" label="Input Options">
-                    <Property name="InputArray" />
-                </PropertyGroup> -->
+      <StringVectorProperty
+         name="Regexp"
+         command="SetRegexpString"
+         number_of_elements="1"
+         default_values=".*"
+         panel_visibility="advanced">
+        <Hints>
+          <PropertyWidgetDecorator type="GenericDecorator"
+                                   mode="visibility"
+                                   property="SelectFieldsWithRegexp"
+                                   value="1" />
+        </Hints>
+         <Documentation>
+            This regexp will be used to filter the chosen fields. Only
+            matching ones will be selected.
+         </Documentation>
+      </StringVectorProperty>
+      
+      <PropertyGroup panel_widget="Line" label="Input options">
+        <Property name="SelectFieldsWithRegexp" />
+        <Property name="ScalarFields" />
+        <Property name="Regexp" />
+      </PropertyGroup>
 
-            <!-- ALGORITHM WIDGETS -->
+
+    <!-- ALGORITHM WIDGETS -->
 
 
                 <DoubleVectorProperty name="DeletionCost" label="DeletionCost" command="SetDeletionCost" number_of_elements="1" default_values="1">
@@ -59,10 +103,10 @@
                 </DoubleVectorProperty>
 
                 <PropertyGroup panel_widget="Line" label="Algorithm Options">
-                    <Property name="DeletionCost">
+                    <Property name="DeletionCost"/>
                 </PropertyGroup>
 
-            <!-- OUTPUT PARAMETER WIDGETS -->
+    <!-- OUTPUT PARAMETER WIDGETS -->
 
                 <!-- A string parameter that controls the name of the output array -->
                 <StringVectorProperty name="OutputPathName" label="Output Path Name" command="SetOutputPathName" number_of_elements="1" default_values="WarpingPath">

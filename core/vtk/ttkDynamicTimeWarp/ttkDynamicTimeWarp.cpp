@@ -13,7 +13,7 @@
 vtkStandardNewMacro(ttkDynamicTimeWarp);
 
 /**
- * TODO 7: Implement the filter constructor and destructor in the cpp file.
+ * vTODO 7: Implement the filter constructor and destructor in the cpp file.
  *
  * The constructor has to specify the number of input and output ports
  * with the functions SetNumberOfInputPorts and SetNumberOfOutputPorts,
@@ -25,15 +25,16 @@ vtkStandardNewMacro(ttkDynamicTimeWarp);
  * to be freed when the filter is destroyed.
  */
 ttkDynamicTimeWarp::ttkDynamicTimeWarp() {
+  this->setDebugMsgPrefix("DynamicTimeWarp");
   this->SetNumberOfInputPorts(1);
-  this->SetNumberOfOutputPorts(1);
+  this->SetNumberOfOutputPorts(2);
 }
 
 ttkDynamicTimeWarp::~ttkDynamicTimeWarp() {
 }
 
 /**
- * TODO 8: Specify the required input data type of each input port
+ * vTODO 8: Specify the required input data type of each input port
  *
  * This method specifies the required input object data types of the
  * filter by adding the vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE() key to
@@ -41,7 +42,7 @@ ttkDynamicTimeWarp::~ttkDynamicTimeWarp() {
  */
 int ttkDynamicTimeWarp::FillInputPortInformation(int port, vtkInformation *info) {
   if(port == 0)
-    info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
+    info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkTable");
   else
     return 0;
 
@@ -49,7 +50,7 @@ int ttkDynamicTimeWarp::FillInputPortInformation(int port, vtkInformation *info)
 }
 
 /**
- * TODO 9: Specify the data object type of each output port
+ * vTODO 9: Specify the data object type of each output port
  *
  * This method specifies in the port information object the data type of the
  * corresponding output objects. It is possible to either explicitly
@@ -64,8 +65,8 @@ int ttkDynamicTimeWarp::FillInputPortInformation(int port, vtkInformation *info)
  * initialize empty output data objects based on this information.
  */
 int ttkDynamicTimeWarp::FillOutputPortInformation(int port, vtkInformation *info) {
-  if(port == 0)
-    info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
+  if(port == 0 || port == 1)
+    info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkUnstructuredGrid");
   else
     return 0;
 
