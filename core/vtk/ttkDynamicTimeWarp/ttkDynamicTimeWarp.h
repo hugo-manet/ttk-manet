@@ -30,6 +30,8 @@
 
 // VTK Includes
 #include <ttkAlgorithm.h>
+#include <vtkInformation.h>
+#include <vtkInformationVector.h>
 
 // TTK Base Includes
 #include <DynamicTimeWarp.h>
@@ -94,20 +96,20 @@ public:
 
 protected:
   /**
-   * TODO 7: Implement the filter constructor and destructor
+   * vTODO 7: Implement the filter constructor and destructor
    *         (see cpp file)
    */
   ttkDynamicTimeWarp();
   ~ttkDynamicTimeWarp() override;
 
   /**
-   * TODO 8: Specify the input data type of each input port
+   * vTODO 8: Specify the input data type of each input port
    *         (see cpp file)
    */
   int FillInputPortInformation(int port, vtkInformation *info) override;
 
   /**
-   * TODO 9: Specify the data object type of each output port
+   * vTODO 9: Specify the data object type of each output port
    *         (see cpp file)
    */
   int FillOutputPortInformation(int port, vtkInformation *info) override;

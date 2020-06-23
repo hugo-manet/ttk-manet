@@ -4,9 +4,14 @@
 #include <vtkDataSet.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
+#include <vtkTable.h>
+#include <vtkUnstructuredGrid.h>
 
 #include <ttkMacros.h>
 #include <ttkUtils.h>
+
+#include <boost/numeric/ublas/matrix.hpp>
+#include <regex>
 
 // A VTK macro that enables the instantiation of this class via ::New()
 // You do not have to modify this
@@ -89,96 +94,40 @@ int ttkDynamicTimeWarp::FillOutputPortInformation(int port, vtkInformation *info
 int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
                                vtkInformationVector **inputVector,
                                vtkInformationVector *outputVector) {
-  /* REMOVED
-  // Get input object from input vector
-  // Note: has to be a vtkDataSet as required by FillInputPortInformation
-  vtkDataSet *inputDataSet = vtkDataSet::GetData(inputVector[0]);
+  ttk::Timer tm{};
 
-  // Get input array that will be processed
-  //
-  // Note: VTK provides abstract functionality to handle array selections, but
-  //       this essential functionality is unfortunately not well documented.
-  //       Before you read further, please keep in mind the the TTK developer
-  //       team is not responsible for the existing VTK Api ;-)
-  //
-  //       In a nutshell, prior to the RequestData execution one has to call
-  //
-  //           SetInputArrayToProcess (
-  //               int idx,
-  //               int port,
-  //               int connection,
-  //               int fieldAssociation,
-  //               const char *name
-  //            )
-  //
-  //       The parameter 'idx' is often missunderstood: lets say the filter
-  //       requires n arrays, then idx enumerates them from 0 to n-1.
-  //
-  //       The 'port' is the input port index at which the object is connected
-  //       from which we want to get the array.
-  //
-  //       The 'connection' is the connection index at that port (we have to
-  //       specify this because VTK allows multiple connections at the same
-  //       input port).
-  //
-  //       The 'fieldAssociation' integer specifies if the array should be taken
-  //       from 0: point data, 1: cell data, or 2: field data.
-  //
-  //       The final parameter is the 'name' of the array.
-  //
-  //       Example: SetInputArrayToProcess(3,1,0,1,"EdgeLength") will store for
-  //                the 3rd array the filter needs the cell data array named
-  //                "EdgeLength" that it will retrieve from the vtkDataObject
-  //                at input port 1 (first connection). During the RequestData
-  //                method one can then actually retrieve the 3rd array it
-  //                requires for its computation by calling
-  //                GetInputArrayToProcess(3, inputVector)
-  //
-  //       If this filter is run within ParaView, then the UI will automatically
-  //       call SetInputArrayToProcess (see DynamicTimeWarp.xml file).
-  //
-  vtkDataArray *inputArray = this->GetInputArrayToProcess(0, inputVector);
+  const auto input = vtkTable::GetData(inputVector[0]);
+  const auto output = vtkUnstructuredGrid::GetData(outputVector);
 
-  // Create an output array that has the same data type as the input array
-  // Note: vtkSmartPointers are well documented
-  //       (https://vtk.org/Wiki/VTK/Tutorials/SmartPointers)
-  vtkSmartPointer<vtkDataArray> outputArray
-    = vtkSmartPointer<vtkDataArray>::Take(inputArray->NewInstance());
-  outputArray->SetName(this->OutputArrayName.data()); // set array name
-  outputArray->SetNumberOfComponents(1); // only one component per tuple
-  outputArray->SetNumberOfTuples(inputArray->GetNumberOfTuples());
+  if(SelectFieldsWithRegexp) {
+    // select all input columns whose name is matching the regexp
+    ScalarFields.clear();
+    const auto n = input->GetNumberOfColumns();
+    for(int i = 0; i < n; ++i) {
+      const auto &name = input->GetColumnName(i);
+      if(std::regex_match(name, std::regex(RegexpString))) {
+        ScalarFields.emplace_back(name);
+      }
+    }
+  }
 
-  // Get ttk::triangulation of the input vtkDataSet (will create one if does
-  // not exist already)
-  ttk::Triangulation *triangulation
-    = ttkAlgorithm::GetTriangulation(inputDataSet);
+  const auto nColumns = ScalarFields.size();
+  const auto nRows = static_cast<size_t>(input->GetNumberOfRows());
 
-  // Precondition the triangulation (e.g., enable fetching of vertex neighbors)
-  //this->preconditionTriangulation(triangulation); // implemented in base class
+  boost::numeric::ublas::matrix<double> distanceMatrix(nRows, nColumns);
+  for(size_t i = 0; i < nColumns; ++i) {
+    for(size_t j = 0; j < nRows; ++j) {
+      distanceMatrix(i, j) = input->GetColumnByName(ScalarFields[i].data())
+                               ->GetVariantValue(j)
+                               .ToDouble();
+    }
+  }
 
-  printMsg("Starting computation on array `"
-           + std::string(inputArray->GetName()) + "'...");
-  // Templatize over the different input array data types and call the base code
-  int status = 0; // this integer checks if the base code returns an error
-  ttkVtkTemplateMacro(triangulation->getType(), inputArray->GetDataType(),
-                      (status = this->computeAverages<VTK_TT, TTK_TT>(
-                         (VTK_TT *)ttkUtils::GetVoidPointer(outputArray),
-                         (VTK_TT *)ttkUtils::GetVoidPointer(inputArray),
-                         (TTK_TT *)triangulation->getData())));
+  auto warpingPath = this->computeWarpingPath(distanceMatrix);
 
-  // On error cancel filter execution
-  if(status == 0)
-    return 0;
-
-  // Get output vtkDataSet (which was already instantiated based on the
-  // information provided by FillOutputPortInformation)
-  vtkDataSet *outputDataSet = vtkDataSet::GetData(outputVector, 0);
-
-  // make a SHALLOW copy of the input
-  outputDataSet->ShallowCopy(inputDataSet);
-
-  // add to the output point data the computed output array
-  outputDataSet->GetPointData()->AddArray(outputArray);
-  // */
+  auto output_path = vtkUnstructuredGrid::SafeDownCast(
+    outputVector->GetInformationObject(0)->Get(vtkDataObject::DATA_OBJECT()));
+  auto output_matching = vtkUnstructuredGrid::SafeDownCast(
+    outputVector->GetInformationObject(1)->Get(vtkDataObject::DATA_OBJECT()));
   return 1;
 }
