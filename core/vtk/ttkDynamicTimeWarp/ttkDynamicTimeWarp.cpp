@@ -103,8 +103,8 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
     // select all input columns whose name is matching the regexp
     ScalarFields.clear();
     const auto n = input->GetNumberOfColumns();
-    for(int i = 0; i < n; ++i) {
-      const auto &name = input->GetColumnName(i);
+    for(int jCol = 0; jCol < n; ++jCol) {
+      const auto &name = input->GetColumnName(jCol);
       if(std::regex_match(name, std::regex(RegexpString))) {
         ScalarFields.emplace_back(name);
       }
@@ -115,11 +115,12 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   const auto nRows = static_cast<size_t>(input->GetNumberOfRows());
 
   boost::numeric::ublas::matrix<double> distanceMatrix(nRows, nColumns);
-  for(size_t i = 0; i < nColumns; ++i) {
-    for(size_t j = 0; j < nRows; ++j) {
-      distanceMatrix(i, j) = input->GetColumnByName(ScalarFields[i].data())
-                               ->GetVariantValue(j)
-                               .ToDouble();
+  for(size_t iRow = 0; iRow < nRows; ++iRow) {
+    for(size_t jCol = 0; jCol < nColumns; ++jCol) {
+      distanceMatrix(iRow, jCol)
+        = input->GetColumnByName(ScalarFields[jCol].data())
+            ->GetVariantValue(iRow)
+            .ToDouble();
     }
   }
 
@@ -130,5 +131,6 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
     outputVector->GetInformationObject(0)->Get(vtkDataObject::DATA_OBJECT()));
   auto output_matching = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(1)->Get(vtkDataObject::DATA_OBJECT()));
+
   return 1;
 }
