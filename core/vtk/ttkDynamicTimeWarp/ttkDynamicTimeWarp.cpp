@@ -142,20 +142,25 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
     = vtkSmartPointer<vtkUnstructuredGrid>::New();
 
   // Fill the matching points and the path
-  // TODO update the cells, and their infos
+  // TODO update the cells' infos
   size_t iRow = 0, jCol = 0;
   matchingPoints->InsertNextPoint(iRow, 0, 0); // y=0 : curve along rows
   matchingPoints->InsertNextPoint(jCol, 1, 0); // y=1 : curve along cols
   vtkIdType matchingLine[2] = {0, 1};
+  vtkIdType pathLine[2] = {-1, 0};
   matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
   pathPoints->InsertNextPoint(iRow, jCol, 0);
   size_t kPoint = 1;
   for(auto dir : warpingPath) {
+    pathLine[0]++;
+    pathLine[1]++;
+    pathCells->InsertNextCell(VTK_LINE, 2, pathLine);
     switch(dir) {
       case Direction::DIR_SAME_COL:
         matchingPoints->InsertNextPoint(++iRow, 0, 0);
         pathPoints->InsertNextPoint(iRow, jCol, 0);
-        // TODO connect two last path points with algo weight
+        // TODO connect two last path points with algo weight, and color the
+        // matchings
         {
           vtkIdType curveLineRow[2] = {matchingLine[0], ++kPoint};
           matchingLine[0] = kPoint; // new point is a row
@@ -166,7 +171,8 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
       case Direction::DIR_SAME_ROW:
         matchingPoints->InsertNextPoint(++jCol, 1, 0);
         pathPoints->InsertNextPoint(iRow, jCol, 0);
-        // TODO connect two last path points with algo weight
+        // TODO connect two last path points with algo weight, and color the
+        // matchings
         {
           vtkIdType curveLineCol[2] = {matchingLine[1], ++kPoint};
           matchingLine[1] = kPoint; // second new point is a col
@@ -178,7 +184,8 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
         matchingPoints->InsertNextPoint(++iRow, 0, 0);
         matchingPoints->InsertNextPoint(++jCol, 1, 0);
         pathPoints->InsertNextPoint(iRow, jCol, 0);
-        // TODO connect two last path points with algo weight
+        // TODO connect two last path points with algo weight, and color the
+        // matchings
         {
           vtkIdType curveLineRow[2] = {matchingLine[0], ++kPoint};
           matchingLine[0] = kPoint; // first new point is a row
