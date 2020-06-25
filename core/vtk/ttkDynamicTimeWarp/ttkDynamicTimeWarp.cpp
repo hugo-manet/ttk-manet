@@ -134,6 +134,8 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   vtkSmartPointer<vtkPoints> matchingPoints = vtkSmartPointer<vtkPoints>::New();
   vtkSmartPointer<vtkUnstructuredGrid> matchingCells
     = vtkSmartPointer<vtkUnstructuredGrid>::New();
+  matchingCells->AllocateExact(
+    warpingPath.size() + 1, 2 * (warpingPath.size() + 1));
 
   vtkSmartPointer<vtkPoints> pathPoints = vtkSmartPointer<vtkPoints>::New();
   vtkSmartPointer<vtkUnstructuredGrid> pathCells
@@ -141,38 +143,51 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
 
   // Fill the matching points and the path
   // TODO update the cells, and their infos
-  int iRow = 0, jCol = 0;
+  size_t iRow = 0, jCol = 0;
   matchingPoints->InsertNextPoint(iRow, 0, 0); // y=0 : curve along rows
   matchingPoints->InsertNextPoint(jCol, 1, 0); // y=1 : curve along cols
+  vtkIdType matchingLine[2] = {0, 1};
+  matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
   pathPoints->InsertNextPoint(iRow, jCol, 0);
-  int kLastRow = 0, kLastCol = 1, kLastPoint = 1;
+  size_t kPoint = 1;
   for(auto dir : warpingPath) {
     switch(dir) {
       case Direction::DIR_SAME_COL:
         matchingPoints->InsertNextPoint(++iRow, 0, 0);
         pathPoints->InsertNextPoint(iRow, jCol, 0);
         // TODO connect two last path points with algo weight
-        // TODO connect kLastRow and kPoint along same curve
-        // TODO connect kLastCol and kPoint with a matching
-        kLastRow = ++kLastPoint; // new point is a row
+        {
+          vtkIdType curveLineRow[2] = {matchingLine[0], ++kPoint};
+          matchingLine[0] = kPoint; // new point is a row
+          matchingCells->InsertNextCell(VTK_LINE, 2, curveLineRow);
+        }
+        matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
         break;
       case Direction::DIR_SAME_ROW:
         matchingPoints->InsertNextPoint(++jCol, 1, 0);
         pathPoints->InsertNextPoint(iRow, jCol, 0);
         // TODO connect two last path points with algo weight
-        // TODO connect kLastCol and kPoint along same curve
-        // TODO connect kLastRow and kPoint with a matching
-        kLastCol = ++kLastPoint; // new point is a col
+        {
+          vtkIdType curveLineCol[2] = {matchingLine[1], ++kPoint};
+          matchingLine[1] = kPoint; // second new point is a col
+          matchingCells->InsertNextCell(VTK_LINE, 2, curveLineCol);
+        }
+        matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
         break;
       case Direction::DIR_BOTH:
         matchingPoints->InsertNextPoint(++iRow, 0, 0);
         matchingPoints->InsertNextPoint(++jCol, 1, 0);
         pathPoints->InsertNextPoint(iRow, jCol, 0);
         // TODO connect two last path points with algo weight
-        // TODO connect both points along same curve
-        // TODO connect both points with a matching
-        kLastRow = ++kLastPoint; // first new point is a row
-        kLastCol = ++kLastPoint; // second new point is a col
+        {
+          vtkIdType curveLineRow[2] = {matchingLine[0], ++kPoint};
+          matchingLine[0] = kPoint; // first new point is a row
+          matchingCells->InsertNextCell(VTK_LINE, 2, curveLineRow);
+          vtkIdType curveLineCol[2] = {matchingLine[1], ++kPoint};
+          matchingLine[1] = kPoint; // second new point is a col
+          matchingCells->InsertNextCell(VTK_LINE, 2, curveLineCol);
+        }
+        matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
         break;
     }
   }
