@@ -1,5 +1,6 @@
 #include <ttkDynamicTimeWarp.h>
 
+#include <vtkCellData.h>
 #include <vtkDataArray.h>
 #include <vtkDataSet.h>
 #include <vtkPointData.h>
@@ -141,6 +142,23 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   vtkSmartPointer<vtkUnstructuredGrid> pathCells
     = vtkSmartPointer<vtkUnstructuredGrid>::New();
 
+  vtkNew<vtkDoubleArray> matchingDistance{};
+  matchingDistance->SetNumberOfComponents(1);
+  matchingDistance->SetName("Distance");
+
+  // type is 0 for intra-curve, 1 for deletion, 2 for normal
+  vtkNew<vtkIntArray> matchingType{};
+  matchingType->SetNumberOfComponents(1);
+  matchingType->SetName("Type");
+
+  vtkNew<vtkDoubleArray> pathWeight{};
+  pathWeight->SetNumberOfComponents(1);
+  pathWeight->SetName("Weight");
+
+  vtkNew<vtkDoubleArray> pathDistance{};
+  pathDistance->SetNumberOfComponents(1);
+  pathDistance->SetName("Distance");
+
   // Fill the matching points and the path
   // TODO update the cells' infos
   size_t iRow = 0, jCol = 0;
@@ -149,6 +167,8 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   vtkIdType matchingLine[2] = {0, 1};
   vtkIdType pathLine[2] = {-1, 0};
   matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
+  matchingType->InsertNextValue(2);
+  matchingDistance->InsertNextValue(distanceMatrix(0, 0));
   pathPoints->InsertNextPoint(iRow, jCol, 0);
   size_t kPoint = 1;
   for(auto dir : warpingPath) {
@@ -159,51 +179,69 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
       case Direction::DIR_SAME_COL:
         matchingPoints->InsertNextPoint(++iRow, 0, 0);
         pathPoints->InsertNextPoint(iRow, jCol, 0);
-        // TODO connect two last path points with algo weight, and color the
-        // matchings
+        pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
+        pathWeight->InsertNextValue(DeletionCost * distanceMatrix(iRow, jCol));
         {
           vtkIdType curveLineRow[2] = {matchingLine[0], ++kPoint};
           matchingLine[0] = kPoint; // new point is a row
           matchingCells->InsertNextCell(VTK_LINE, 2, curveLineRow);
+          matchingType->InsertNextValue(0);
+          matchingDistance->InsertNextValue(0);
         }
         matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
+        matchingType->InsertNextValue(1);
+        matchingDistance->InsertNextValue(distanceMatrix(iRow, jCol));
         break;
       case Direction::DIR_SAME_ROW:
         matchingPoints->InsertNextPoint(++jCol, 1, 0);
         pathPoints->InsertNextPoint(iRow, jCol, 0);
-        // TODO connect two last path points with algo weight, and color the
-        // matchings
+        pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
+        pathWeight->InsertNextValue(DeletionCost * distanceMatrix(iRow, jCol));
         {
           vtkIdType curveLineCol[2] = {matchingLine[1], ++kPoint};
           matchingLine[1] = kPoint; // second new point is a col
           matchingCells->InsertNextCell(VTK_LINE, 2, curveLineCol);
+          matchingType->InsertNextValue(0);
+          matchingDistance->InsertNextValue(0);
         }
         matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
+        matchingType->InsertNextValue(1);
+        matchingDistance->InsertNextValue(distanceMatrix(iRow, jCol));
         break;
       case Direction::DIR_BOTH:
         matchingPoints->InsertNextPoint(++iRow, 0, 0);
         matchingPoints->InsertNextPoint(++jCol, 1, 0);
         pathPoints->InsertNextPoint(iRow, jCol, 0);
-        // TODO connect two last path points with algo weight, and color the
-        // matchings
+        pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
+        pathWeight->InsertNextValue(distanceMatrix(iRow, jCol));
         {
           vtkIdType curveLineRow[2] = {matchingLine[0], ++kPoint};
           matchingLine[0] = kPoint; // first new point is a row
           matchingCells->InsertNextCell(VTK_LINE, 2, curveLineRow);
+          matchingType->InsertNextValue(0);
+          matchingDistance->InsertNextValue(0);
           vtkIdType curveLineCol[2] = {matchingLine[1], ++kPoint};
           matchingLine[1] = kPoint; // second new point is a col
           matchingCells->InsertNextCell(VTK_LINE, 2, curveLineCol);
+          matchingType->InsertNextValue(0);
+          matchingDistance->InsertNextValue(0);
         }
         matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
+        matchingType->InsertNextValue(2);
+        matchingDistance->InsertNextValue(distanceMatrix(iRow, jCol));
         break;
     }
   }
 
   matchingCells->SetPoints(matchingPoints);
   output_matching->ShallowCopy(matchingCells);
+  output_matching->GetCellData()->AddArray(matchingType);
+  output_matching->GetCellData()->AddArray(matchingDistance);
 
   pathCells->SetPoints(pathPoints);
   output_path->ShallowCopy(pathCells);
+  output_path->GetCellData()->AddArray(pathWeight);
+  output_path->GetCellData()->AddArray(pathDistance);
 
   return 1;
 }
