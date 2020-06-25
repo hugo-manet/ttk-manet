@@ -77,7 +77,27 @@ vector<DynamicTimeWarp::Direction> DynamicTimeWarp::computeWarpingPath(
         = DynamicTimeWarp::Direction::DIR_SAME_ROW;
     }
   }
+
   this->printMsg("Reconstructing path...");
+
+  for(size_t iRow = nRows - 1, jCol = nCols - 1; iRow + jCol > 0;) {
+    retVal.push_back(pathDirection(iRow, jCol));
+    switch(pathDirection(iRow, jCol)) {
+      case DynamicTimeWarp::Direction::DIR_BOTH:
+        --iRow;
+        --jCol;
+        break;
+      case DynamicTimeWarp::Direction::DIR_SAME_ROW:
+        --jCol;
+        break;
+      case DynamicTimeWarp::Direction::DIR_SAME_COL:
+        --iRow;
+        break;
+    }
+  }
+
+  reverse(retVal.begin(), retVal.end());
+  this->printMsg("Done reconstructing.");
 
   return retVal;
 }
