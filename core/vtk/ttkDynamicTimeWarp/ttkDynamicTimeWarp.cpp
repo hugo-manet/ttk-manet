@@ -169,7 +169,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
   matchingType->InsertNextValue(2);
   matchingDistance->InsertNextValue(distanceMatrix(0, 0));
-  pathPoints->InsertNextPoint(iRow, jCol, 0);
+  pathPoints->InsertNextPoint(jCol, iRow, 0);
   size_t kPoint = 1;
   for(auto dir : warpingPath) {
     pathLine[0]++;
@@ -178,7 +178,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
     switch(dir) {
       case Direction::DIR_SAME_COL:
         matchingPoints->InsertNextPoint(++iRow, 0, 0);
-        pathPoints->InsertNextPoint(iRow, jCol, 0);
+        pathPoints->InsertNextPoint(jCol, iRow, 0);
         pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
         pathWeight->InsertNextValue(DeletionCost * distanceMatrix(iRow, jCol));
         {
@@ -194,7 +194,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
         break;
       case Direction::DIR_SAME_ROW:
         matchingPoints->InsertNextPoint(++jCol, 1, 0);
-        pathPoints->InsertNextPoint(iRow, jCol, 0);
+        pathPoints->InsertNextPoint(jCol, iRow, 0);
         pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
         pathWeight->InsertNextValue(DeletionCost * distanceMatrix(iRow, jCol));
         {
@@ -211,7 +211,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
       case Direction::DIR_BOTH:
         matchingPoints->InsertNextPoint(++iRow, 0, 0);
         matchingPoints->InsertNextPoint(++jCol, 1, 0);
-        pathPoints->InsertNextPoint(iRow, jCol, 0);
+        pathPoints->InsertNextPoint(jCol, iRow, 0);
         pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
         pathWeight->InsertNextValue(distanceMatrix(iRow, jCol));
         {
