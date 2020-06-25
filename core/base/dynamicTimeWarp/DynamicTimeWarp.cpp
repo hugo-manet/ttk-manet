@@ -29,7 +29,7 @@ vector<DynamicTimeWarp::Direction> DynamicTimeWarp::computeWarpingPath(
     for(size_t jCol = 0; jCol < nCols - 1; ++jCol) {
       // Propagate in three directions
       if(dynCostPath(iRow + 1, jCol)
-         < dynCostPath(iRow, jCol)
+         > dynCostPath(iRow, jCol)
              + DeletionCost * distanceMatrix(iRow + 1, jCol)) {
         dynCostPath(iRow + 1, jCol)
           = dynCostPath(iRow, jCol)
@@ -38,7 +38,7 @@ vector<DynamicTimeWarp::Direction> DynamicTimeWarp::computeWarpingPath(
           = DynamicTimeWarp::Direction::DIR_SAME_COL;
       }
       if(dynCostPath(iRow, jCol + 1)
-         < dynCostPath(iRow, jCol)
+         > dynCostPath(iRow, jCol)
              + DeletionCost * distanceMatrix(iRow, jCol + 1)) {
         dynCostPath(iRow, jCol + 1)
           = dynCostPath(iRow, jCol)
@@ -47,7 +47,7 @@ vector<DynamicTimeWarp::Direction> DynamicTimeWarp::computeWarpingPath(
           = DynamicTimeWarp::Direction::DIR_SAME_ROW;
       }
       if(dynCostPath(iRow + 1, jCol + 1)
-         < dynCostPath(iRow, jCol) + distanceMatrix(iRow + 1, jCol + 1)) {
+         > dynCostPath(iRow, jCol) + distanceMatrix(iRow + 1, jCol + 1)) {
         dynCostPath(iRow + 1, jCol + 1)
           = dynCostPath(iRow, jCol) + distanceMatrix(iRow + 1, jCol + 1);
         pathDirection(iRow + 1, jCol + 1)
@@ -56,7 +56,7 @@ vector<DynamicTimeWarp::Direction> DynamicTimeWarp::computeWarpingPath(
     }
     // Propagate along the last column
     if(dynCostPath(iRow + 1, nCols - 1)
-       < dynCostPath(iRow, nCols - 1)
+       > dynCostPath(iRow, nCols - 1)
            + DeletionCost * distanceMatrix(iRow + 1, nCols - 1)) {
       dynCostPath(iRow + 1, nCols - 1)
         = dynCostPath(iRow, nCols - 1)
@@ -68,7 +68,7 @@ vector<DynamicTimeWarp::Direction> DynamicTimeWarp::computeWarpingPath(
   for(size_t jCol = 0; jCol < nCols - 1; ++jCol) {
     // Propagate along the last line
     if(dynCostPath(nRows - 1, jCol + 1)
-       < dynCostPath(nRows - 1, jCol)
+       > dynCostPath(nRows - 1, jCol)
            + DeletionCost * distanceMatrix(nRows - 1, jCol + 1)) {
       dynCostPath(nRows - 1, jCol + 1)
         = dynCostPath(nRows - 1, jCol)
