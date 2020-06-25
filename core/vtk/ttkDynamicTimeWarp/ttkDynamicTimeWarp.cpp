@@ -123,7 +123,8 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
     }
   }
 
-  auto warpingPath = this->computeWarpingPath(distanceMatrix);
+  auto warpingPath
+    = this->computeWarpingPath(distanceMatrix, this->DeletionCost);
 
   auto output_path = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(0)->Get(vtkDataObject::DATA_OBJECT()));
