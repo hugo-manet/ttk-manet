@@ -53,9 +53,11 @@ namespace ttk {
      *               preconditioned for the upcoming operations.
      */
 
-    std::vector<Direction> computeWarpingPath(
-      const boost::numeric::ublas::matrix<double> &distanceMatrix,
-      double DeletionCost) const;
+    // Return parameters : pathType , iRow  , jCol  , weight
+    std::vector<std::tuple<Direction, size_t, size_t, double>>
+      computeWarpingPath(
+        const boost::numeric::ublas::matrix<double> &distanceMatrix,
+        double DeletionCost) const;
 
   }; // DynamicTimeWarp class
 
