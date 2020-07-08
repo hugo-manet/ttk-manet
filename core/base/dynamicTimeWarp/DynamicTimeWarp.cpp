@@ -6,10 +6,11 @@
 using namespace std;
 using namespace ttk;
 
-vector<DynamicTimeWarp::Direction> DynamicTimeWarp::computeWarpingPath(
-  const boost::numeric::ublas::matrix<double> &distanceMatrix,
-  double DeletionCost) const {
-  vector<DynamicTimeWarp::Direction> retVal;
+vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
+  DynamicTimeWarp::computeWarpingPath(
+    const boost::numeric::ublas::matrix<double> &distanceMatrix,
+    double DeletionCost) const {
+  vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>> retVal;
 
   size_t nRows = distanceMatrix.size1(), nCols = distanceMatrix.size2();
   boost::numeric::ublas::matrix<double> dynCostPath(
@@ -24,65 +25,50 @@ vector<DynamicTimeWarp::Direction> DynamicTimeWarp::computeWarpingPath(
    *  The propagation on the last column and last line are different to avoid
    * going out of the table
    */
+  // TODO répartir les coefficients
   dynCostPath(0, 0) = distanceMatrix(0, 0);
+  auto propagateTo = [&](size_t iRowStart, size_t jColStart, size_t deltaRow,
+                         size_t deltaCol, DynamicTimeWarp::Direction dir,
+                         double multiplier) {
+    if(dynCostPath(iRowStart + deltaRow, jColStart + deltaCol)
+       > dynCostPath(iRowStart, jColStart)
+           + multiplier
+               * distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol)) {
+      dynCostPath(iRowStart + deltaRow, jColStart + deltaCol)
+        = dynCostPath(iRowStart, jColStart)
+          + multiplier
+              * distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol);
+      pathDirection(iRowStart + deltaRow, jColStart + deltaCol) = dir;
+    }
+  };
   for(size_t iRow = 0; iRow < nRows - 1; ++iRow) {
     for(size_t jCol = 0; jCol < nCols - 1; ++jCol) {
       // Propagate in three directions
-      if(dynCostPath(iRow + 1, jCol)
-         > dynCostPath(iRow, jCol)
-             + DeletionCost * distanceMatrix(iRow + 1, jCol)) {
-        dynCostPath(iRow + 1, jCol)
-          = dynCostPath(iRow, jCol)
-            + DeletionCost * distanceMatrix(iRow + 1, jCol);
-        pathDirection(iRow + 1, jCol)
-          = DynamicTimeWarp::Direction::DIR_SAME_COL;
-      }
-      if(dynCostPath(iRow, jCol + 1)
-         > dynCostPath(iRow, jCol)
-             + DeletionCost * distanceMatrix(iRow, jCol + 1)) {
-        dynCostPath(iRow, jCol + 1)
-          = dynCostPath(iRow, jCol)
-            + DeletionCost * distanceMatrix(iRow, jCol + 1);
-        pathDirection(iRow, jCol + 1)
-          = DynamicTimeWarp::Direction::DIR_SAME_ROW;
-      }
-      if(dynCostPath(iRow + 1, jCol + 1)
-         > dynCostPath(iRow, jCol) + distanceMatrix(iRow + 1, jCol + 1)) {
-        dynCostPath(iRow + 1, jCol + 1)
-          = dynCostPath(iRow, jCol) + distanceMatrix(iRow + 1, jCol + 1);
-        pathDirection(iRow + 1, jCol + 1)
-          = DynamicTimeWarp::Direction::DIR_BOTH;
-      }
+      propagateTo(iRow, jCol, 1, 0, DynamicTimeWarp::Direction::DIR_SAME_COL,
+                  DeletionCost);
+      propagateTo(iRow, jCol, 0, 1, DynamicTimeWarp::Direction::DIR_SAME_ROW,
+                  DeletionCost);
+      propagateTo(iRow, jCol, 1, 1, DynamicTimeWarp::Direction::DIR_BOTH, 1);
     }
     // Propagate along the last column
-    if(dynCostPath(iRow + 1, nCols - 1)
-       > dynCostPath(iRow, nCols - 1)
-           + DeletionCost * distanceMatrix(iRow + 1, nCols - 1)) {
-      dynCostPath(iRow + 1, nCols - 1)
-        = dynCostPath(iRow, nCols - 1)
-          + DeletionCost * distanceMatrix(iRow + 1, nCols - 1);
-      pathDirection(iRow + 1, nCols - 1)
-        = DynamicTimeWarp::Direction::DIR_SAME_COL;
-    }
+    propagateTo(iRow, nCols - 1, 1, 0, DynamicTimeWarp::Direction::DIR_SAME_COL,
+                DeletionCost);
   }
   for(size_t jCol = 0; jCol < nCols - 1; ++jCol) {
     // Propagate along the last line
-    if(dynCostPath(nRows - 1, jCol + 1)
-       > dynCostPath(nRows - 1, jCol)
-           + DeletionCost * distanceMatrix(nRows - 1, jCol + 1)) {
-      dynCostPath(nRows - 1, jCol + 1)
-        = dynCostPath(nRows - 1, jCol)
-          + DeletionCost * distanceMatrix(nRows - 1, jCol + 1);
-      pathDirection(nRows - 1, jCol + 1)
-        = DynamicTimeWarp::Direction::DIR_SAME_ROW;
-    }
+    propagateTo(nRows - 1, jCol, 0, 1, DynamicTimeWarp::Direction::DIR_SAME_ROW,
+                DeletionCost);
   }
 
   this->printMsg("Reconstructing path...");
 
   for(size_t iRow = nRows - 1, jCol = nCols - 1; iRow + jCol > 0;) {
-    retVal.push_back(pathDirection(iRow, jCol));
-    switch(pathDirection(iRow, jCol)) {
+    auto dir = pathDirection(iRow, jCol);
+    double multiplier
+      = (dir == DynamicTimeWarp::Direction::DIR_BOTH) ? 1 : DeletionCost;
+    retVal.push_back(
+      {dir, iRow, jCol, distanceMatrix(iRow, jCol) * multiplier});
+    switch(dir) {
       case DynamicTimeWarp::Direction::DIR_BOTH:
         --iRow;
         --jCol;

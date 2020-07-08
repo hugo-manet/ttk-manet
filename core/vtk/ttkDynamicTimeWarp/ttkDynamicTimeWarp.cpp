@@ -171,7 +171,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   matchingDistance->InsertNextValue(distanceMatrix(0, 0));
   pathPoints->InsertNextPoint(jCol, iRow, 0);
   size_t kPoint = 1;
-  for(auto dir : warpingPath) {
+  for(auto [dir, iRowP, jColP, weightP] : warpingPath) {
     pathLine[0]++;
     pathLine[1]++;
     pathCells->InsertNextCell(VTK_LINE, 2, pathLine);
@@ -180,7 +180,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
         matchingPoints->InsertNextPoint(++iRow, 0, 0);
         pathPoints->InsertNextPoint(jCol, iRow, 0);
         pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
-        pathWeight->InsertNextValue(DeletionCost * distanceMatrix(iRow, jCol));
+        pathWeight->InsertNextValue(weightP);
         {
           vtkIdType curveLineRow[2] = {matchingLine[0], ++kPoint};
           matchingLine[0] = kPoint; // new point is a row
@@ -196,7 +196,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
         matchingPoints->InsertNextPoint(++jCol, 1, 0);
         pathPoints->InsertNextPoint(jCol, iRow, 0);
         pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
-        pathWeight->InsertNextValue(DeletionCost * distanceMatrix(iRow, jCol));
+        pathWeight->InsertNextValue(weightP);
         {
           vtkIdType curveLineCol[2] = {matchingLine[1], ++kPoint};
           matchingLine[1] = kPoint; // second new point is a col
@@ -213,7 +213,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
         matchingPoints->InsertNextPoint(++jCol, 1, 0);
         pathPoints->InsertNextPoint(jCol, iRow, 0);
         pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
-        pathWeight->InsertNextValue(distanceMatrix(iRow, jCol));
+        pathWeight->InsertNextValue(weightP);
         {
           vtkIdType curveLineRow[2] = {matchingLine[0], ++kPoint};
           matchingLine[0] = kPoint; // first new point is a row
