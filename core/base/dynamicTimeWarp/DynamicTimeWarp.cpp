@@ -25,22 +25,23 @@ vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
    *  The propagation on the last column and last line are different to avoid
    * going out of the table
    */
-  // TODO répartir les coefficients
   dynCostPath(0, 0) = distanceMatrix(0, 0);
-  auto propagateTo = [&](size_t iRowStart, size_t jColStart, size_t deltaRow,
-                         size_t deltaCol, DynamicTimeWarp::Direction dir,
-                         double multiplier) {
-    if(dynCostPath(iRowStart + deltaRow, jColStart + deltaCol)
-       > dynCostPath(iRowStart, jColStart)
-           + multiplier
-               * distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol)) {
-      dynCostPath(iRowStart + deltaRow, jColStart + deltaCol)
-        = dynCostPath(iRowStart, jColStart)
-          + multiplier
-              * distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol);
-      pathDirection(iRowStart + deltaRow, jColStart + deltaCol) = dir;
-    }
-  };
+  auto propagateTo
+    = [&](size_t iRowStart, size_t jColStart, size_t deltaRow, size_t deltaCol,
+          DynamicTimeWarp::Direction dir, double multiplier) {
+        if(dynCostPath(iRowStart + deltaRow, jColStart + deltaCol)
+           > dynCostPath(iRowStart, jColStart)
+               + multiplier
+                   * (distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol)
+                      + distanceMatrix(iRowStart, jColStart))) {
+          dynCostPath(iRowStart + deltaRow, jColStart + deltaCol)
+            = dynCostPath(iRowStart, jColStart)
+              + multiplier
+                  * (distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol)
+                     + distanceMatrix(iRowStart, jColStart));
+          pathDirection(iRowStart + deltaRow, jColStart + deltaCol) = dir;
+        }
+      };
   for(size_t iRow = 0; iRow < nRows - 1; ++iRow) {
     for(size_t jCol = 0; jCol < nCols - 1; ++jCol) {
       // Propagate in three directions
@@ -66,6 +67,7 @@ vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
     auto dir = pathDirection(iRow, jCol);
     double multiplier
       = (dir == DynamicTimeWarp::Direction::DIR_BOTH) ? 1 : DeletionCost;
+    // pushed with a wrong (incomplete) weight, completed after
     retVal.push_back(
       {dir, iRow, jCol, distanceMatrix(iRow, jCol) * multiplier});
     switch(dir) {
@@ -80,6 +82,8 @@ vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
         --iRow;
         break;
     }
+    // complete
+    get<3>(*(retVal.rbegin())) += distanceMatrix(iRow, jCol) * multiplier;
   }
 
   reverse(retVal.begin(), retVal.end());
