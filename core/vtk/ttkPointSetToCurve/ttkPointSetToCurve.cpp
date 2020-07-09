@@ -1,15 +1,16 @@
 #include <ttkPointSetToCurve.h>
 
-#include <vtkDataObject.h> // For port info
-#include <vtkObjectFactory.h> // for new macro
-
 #include <vtkPointData.h>
 #include <vtkPointSet.h>
 #include <vtkStringArray.h>
 #include <vtkUnstructuredGrid.h>
 
+#include <vtkInformation.h>
+#include <vtkInformationVector.h>
+
 #include <ttkUtils.h>
 
+#include <array>
 #include <map>
 #include <set>
 
@@ -62,14 +63,11 @@ int ttkPointSetToCurve::RequestData(vtkInformation *request,
     return 0;
   }
 
-  // point data
-  const auto pd = input->GetPointData();
   // ordering array
-  const auto oa = pd->GetAbstractArray(this->InputOrderingArray.data());
+  const auto oa = this->GetInputArrayToProcess(0, inputVector);
 
   if(oa == nullptr) {
-    this->printErr("Cannot find any data array with the name "
-                   + this->InputOrderingArray);
+    this->printErr("Cannot find the required data array");
     return 0;
   }
 

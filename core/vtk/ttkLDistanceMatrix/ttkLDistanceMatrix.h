@@ -10,10 +10,6 @@
 
 #pragma once
 
-// VTK includes -- to adapt
-#include <vtkInformation.h>
-#include <vtkMultiBlockDataSetAlgorithm.h>
-
 // VTK Module
 #include <ttkLDistanceMatrixModule.h>
 
@@ -30,9 +26,6 @@ public:
 
   vtkTypeMacro(ttkLDistanceMatrix, ttkAlgorithm);
 
-  vtkSetMacro(ScalarField, std::string);
-  vtkGetMacro(ScalarField, std::string);
-
   vtkSetMacro(DistanceType, std::string);
   vtkGetMacro(DistanceType, std::string);
 
@@ -46,7 +39,4 @@ protected:
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
                   vtkInformationVector *outputVector) override;
-
-private:
-  std::string ScalarField{};
 };

@@ -76,12 +76,12 @@ option(TTK_BUILD_DOCUMENTATION "Build doxygen developer documentation" OFF)
 if(TTK_BUILD_DOCUMENTATION)
   find_package(Doxygen)
   if(DOXYGEN_FOUND)
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ttk.doxygen
-      ${CMAKE_CURRENT_BINARY_DIR}/ttk.doxygen)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/core/ttk.doxygen
+      ${CMAKE_CURRENT_BINARY_DIR}/core/ttk.doxygen)
     add_custom_target(doc
       ALL
         ${DOXYGEN_EXECUTABLE}
-        ${CMAKE_CURRENT_BINARY_DIR}/ttk.doxygen
+        ${CMAKE_CURRENT_BINARY_DIR}/core/ttk.doxygen
       WORKING_DIRECTORY
         ${CMAKE_CURRENT_BINARY_DIR}
       COMMENT
@@ -313,7 +313,10 @@ if(NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
   set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}")
 endif()
 
-# Install rapth
+# ParaView plugins go to a subdirectory with this name
+set(TTK_PLUGIN_SUBDIR "TopologyToolKit")
+
+# Install rpath
 
 set(CMAKE_MACOSX_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH TRUE)
