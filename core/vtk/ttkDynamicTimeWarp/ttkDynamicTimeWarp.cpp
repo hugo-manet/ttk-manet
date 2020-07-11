@@ -128,11 +128,11 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
         "Distance matrix is not a square, yet you selected SplitMatrix");
       return 0;
     }
-    if(this->SplitPivot >= totalSize) {
+    if(this->SplitPivot > totalSize) {
       this->printErr("SplitPivot selected higher than matrix size");
       return 0;
     }
-    nRows = SplitPivot + 1;
+    nRows = SplitPivot;
     nColumns = totalSize - nRows;
   } else {
     nColumns = ScalarFields.size();
@@ -167,8 +167,6 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   vtkSmartPointer<vtkPoints> matchingPoints = vtkSmartPointer<vtkPoints>::New();
   vtkSmartPointer<vtkUnstructuredGrid> matchingCells
     = vtkSmartPointer<vtkUnstructuredGrid>::New();
-  matchingCells->AllocateExact(
-    warpingPath.size() + 1, 2 * (warpingPath.size() + 1));
 
   vtkSmartPointer<vtkPoints> pathPoints = vtkSmartPointer<vtkPoints>::New();
   vtkSmartPointer<vtkUnstructuredGrid> pathCells
@@ -235,12 +233,18 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
   matchingType->InsertNextValue(3);
   matchingDistance->InsertNextValue(distanceMatrix(0, 0));
-  pathPoints->InsertNextPoint(0, 0, 0);
+  if(this->SplitMatrix)
+    pathPoints->InsertNextPoint(offsetForCols, 0, 0);
+  else
+    pathPoints->InsertNextPoint(0, 0, 0);
   for(auto [dir, iRow, jCol, weightP] : warpingPath) {
     pathLine[0]++;
     pathLine[1]++;
     pathCells->InsertNextCell(VTK_LINE, 2, pathLine);
-    pathPoints->InsertNextPoint(jCol, iRow, 0);
+    if(this->SplitMatrix)
+      pathPoints->InsertNextPoint(offsetForCols + jCol, iRow, 0);
+    else
+      pathPoints->InsertNextPoint(jCol, iRow, 0);
     pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
     pathWeight->InsertNextValue(weightP);
     switch(dir) {

@@ -117,10 +117,9 @@
                         value="1" />
                 </Hints>
                 <Documentation>
-                    Index of the last point (row) corresponding to the first curve.
-                    The rest is part of the second curve (to time warp with the first).
+                    Index of the first point (row) corresponding to the second curve.
                 </Documentation>
-                <IntRangeDomain name="range" min="0" max="100000" />
+                <IntRangeDomain name="range" min="1" max="100000" />
                 <!-- TODO find a way to dynamically change the max value ? -->
             </IntVectorProperty>
 

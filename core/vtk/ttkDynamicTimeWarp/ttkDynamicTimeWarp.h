@@ -6,13 +6,12 @@
 /// \date 2020-06-18
 ///
 /// \brief TTK VTK-filter that wraps the ttk::DynamicTimeWarp module.
-/// TODO
-/// This VTK filter uses the ttk::DynamicTimeWarp module to compute the bounding box
-/// of a vtkDataSet, which is returned as a vtkUnstructuredGrid.
+/// This VTK filter uses the ttk::DynamicTimeWarp module to compute a time warp
+/// between two curves.
 ///
-/// \param Input vtkDataSet whose bounding box will be computed.
-/// \param Output vtkUnstructuredGrid that corresponds to bounding box of the
-/// input.
+/// \param Input vtkTable that contains a distance matrix between the two curves
+/// \param Output0 vtkUnstructuredGrid : the warping path
+/// \param Output1 vtkUnstructuredGrid : the matched points
 ///
 /// This filter can be used as any other VTK filter (for instance, by using the
 /// sequence of calls SetInputData(), Update(), GetOutputDataObject()).
@@ -46,9 +45,9 @@ private:
    * vTODO 5: Add all filter parameters only as private member variables and
    *         initialize them here.
    */
-  /** Configures the weights on the path 
+  /** Configures the weights on the path
    */
-  double DeletionCost{0.5};
+  double DeletionCost{1};
 
   /** Copy filter mechanism from MatrixToHeatMap
    */
@@ -74,8 +73,6 @@ public:
   vtkSetMacro(DeletionCost, double);
   vtkGetMacro(DeletionCost, double);
 
-  /** TODO maybe put these two in .cpp ?
-   */
   void SetScalarFields(const std::string &s) {
     ScalarFields.emplace_back(s);
     Modified();
