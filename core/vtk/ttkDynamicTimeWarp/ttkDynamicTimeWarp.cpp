@@ -46,7 +46,8 @@ ttkDynamicTimeWarp::~ttkDynamicTimeWarp() {
  * filter by adding the vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE() key to
  * the port information.
  */
-int ttkDynamicTimeWarp::FillInputPortInformation(int port, vtkInformation *info) {
+int ttkDynamicTimeWarp::FillInputPortInformation(int port,
+                                                 vtkInformation *info) {
   if(port == 0)
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkTable");
   else
@@ -70,7 +71,8 @@ int ttkDynamicTimeWarp::FillInputPortInformation(int port, vtkInformation *info)
  * Note: prior to the execution of the RequestData method the pipeline will
  * initialize empty output data objects based on this information.
  */
-int ttkDynamicTimeWarp::FillOutputPortInformation(int port, vtkInformation *info) {
+int ttkDynamicTimeWarp::FillOutputPortInformation(int port,
+                                                  vtkInformation *info) {
   if(port == 0 || port == 1)
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkUnstructuredGrid");
   else
@@ -93,8 +95,8 @@ int ttkDynamicTimeWarp::FillOutputPortInformation(int port, vtkInformation *info
  *        provided by the FillOutputPortInformation method.
  */
 int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
-                               vtkInformationVector **inputVector,
-                               vtkInformationVector *outputVector) {
+                                    vtkInformationVector **inputVector,
+                                    vtkInformationVector *outputVector) {
   ttk::Timer tm{};
 
   const auto input = vtkTable::GetData(inputVector[0]);
@@ -142,14 +144,40 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   vtkSmartPointer<vtkUnstructuredGrid> pathCells
     = vtkSmartPointer<vtkUnstructuredGrid>::New();
 
+  // type is 0 for first curve (rows), 1 for second curve (cols)
+  vtkNew<vtkIntArray> matchingPointCurveIndex{};
+  matchingPointCurveIndex->SetNumberOfComponents(1);
+  matchingPointCurveIndex->SetName("Curve_isCols");
+  for(size_t iRow = 0; iRow < nRows; ++iRow) {
+    matchingPoints->InsertNextPoint(iRow, 0, 0);
+    matchingPointCurveIndex->InsertNextValue(1);
+  }
+  const size_t offsetForCols = nRows;
+  for(size_t jCol = 0; jCol < nColumns; ++jCol) {
+    matchingPoints->InsertNextPoint(jCol, 1, 0);
+    matchingPointCurveIndex->InsertNextValue(0);
+  }
+  // type is 0 for intra-curve for rows, 1 for intra-curve for cols, 2 for
+  // deletion, 3 for matching
+  vtkNew<vtkIntArray> matchingType{};
+  matchingType->SetNumberOfComponents(1);
+  matchingType->SetName("Type");
   vtkNew<vtkDoubleArray> matchingDistance{};
   matchingDistance->SetNumberOfComponents(1);
   matchingDistance->SetName("Distance");
 
-  // type is 0 for intra-curve, 1 for deletion, 2 for normal
-  vtkNew<vtkIntArray> matchingType{};
-  matchingType->SetNumberOfComponents(1);
-  matchingType->SetName("Type");
+  for(size_t iRow = 1; iRow < nRows; ++iRow) {
+    vtkIdType coords[2] = {iRow - 1, iRow};
+    matchingCells->InsertNextCell(VTK_LINE, 2, coords);
+    matchingType->InsertNextValue(1);
+    matchingDistance->InsertNextValue(0.);
+  }
+  for(size_t jCol = 1; jCol < nColumns; ++jCol) {
+    vtkIdType coords[2] = {offsetForCols + jCol - 1, offsetForCols + jCol};
+    matchingCells->InsertNextCell(VTK_LINE, 2, coords);
+    matchingType->InsertNextValue(0);
+    matchingDistance->InsertNextValue(0.);
+  }
 
   vtkNew<vtkDoubleArray> pathWeight{};
   pathWeight->SetNumberOfComponents(1);
@@ -160,83 +188,43 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   pathDistance->SetName("Distance");
 
   // Fill the matching points and the path
-  // TODO update the cells' infos
-  size_t iRow = 0, jCol = 0;
-  matchingPoints->InsertNextPoint(iRow, 0, 0); // y=0 : curve along rows
-  matchingPoints->InsertNextPoint(jCol, 1, 0); // y=1 : curve along cols
-  vtkIdType matchingLine[2] = {0, 1};
+  vtkIdType matchingLine[2] = {0, offsetForCols};
   vtkIdType pathLine[2] = {-1, 0};
   matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
-  matchingType->InsertNextValue(2);
+  matchingType->InsertNextValue(3);
   matchingDistance->InsertNextValue(distanceMatrix(0, 0));
-  pathPoints->InsertNextPoint(jCol, iRow, 0);
-  size_t kPoint = 1;
-  for(auto [dir, iRowP, jColP, weightP] : warpingPath) {
+  pathPoints->InsertNextPoint(0, 0, 0);
+  for(auto [dir, iRow, jCol, weightP] : warpingPath) {
     pathLine[0]++;
     pathLine[1]++;
     pathCells->InsertNextCell(VTK_LINE, 2, pathLine);
+    pathPoints->InsertNextPoint(jCol, iRow, 0);
+    pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
+    pathWeight->InsertNextValue(weightP);
     switch(dir) {
       case Direction::DIR_SAME_COL:
-        matchingPoints->InsertNextPoint(++iRow, 0, 0);
-        pathPoints->InsertNextPoint(jCol, iRow, 0);
-        pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
-        pathWeight->InsertNextValue(weightP);
-        {
-          vtkIdType curveLineRow[2] = {matchingLine[0], ++kPoint};
-          matchingLine[0] = kPoint; // new point is a row
-          matchingCells->InsertNextCell(VTK_LINE, 2, curveLineRow);
-          matchingType->InsertNextValue(0);
-          matchingDistance->InsertNextValue(0);
-        }
-        matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
-        matchingType->InsertNextValue(1);
-        matchingDistance->InsertNextValue(distanceMatrix(iRow, jCol));
+        matchingLine[0] = iRow;
+        matchingType->InsertNextValue(2);
         break;
       case Direction::DIR_SAME_ROW:
-        matchingPoints->InsertNextPoint(++jCol, 1, 0);
-        pathPoints->InsertNextPoint(jCol, iRow, 0);
-        pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
-        pathWeight->InsertNextValue(weightP);
-        {
-          vtkIdType curveLineCol[2] = {matchingLine[1], ++kPoint};
-          matchingLine[1] = kPoint; // second new point is a col
-          matchingCells->InsertNextCell(VTK_LINE, 2, curveLineCol);
-          matchingType->InsertNextValue(0);
-          matchingDistance->InsertNextValue(0);
-        }
-        matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
-        matchingType->InsertNextValue(1);
-        matchingDistance->InsertNextValue(distanceMatrix(iRow, jCol));
+        matchingLine[1] = offsetForCols + jCol;
+        matchingType->InsertNextValue(2);
         break;
       case Direction::DIR_BOTH:
-        matchingPoints->InsertNextPoint(++iRow, 0, 0);
-        matchingPoints->InsertNextPoint(++jCol, 1, 0);
-        pathPoints->InsertNextPoint(jCol, iRow, 0);
-        pathDistance->InsertNextValue(distanceMatrix(iRow, jCol));
-        pathWeight->InsertNextValue(weightP);
-        {
-          vtkIdType curveLineRow[2] = {matchingLine[0], ++kPoint};
-          matchingLine[0] = kPoint; // first new point is a row
-          matchingCells->InsertNextCell(VTK_LINE, 2, curveLineRow);
-          matchingType->InsertNextValue(0);
-          matchingDistance->InsertNextValue(0);
-          vtkIdType curveLineCol[2] = {matchingLine[1], ++kPoint};
-          matchingLine[1] = kPoint; // second new point is a col
-          matchingCells->InsertNextCell(VTK_LINE, 2, curveLineCol);
-          matchingType->InsertNextValue(0);
-          matchingDistance->InsertNextValue(0);
-        }
-        matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
-        matchingType->InsertNextValue(2);
-        matchingDistance->InsertNextValue(distanceMatrix(iRow, jCol));
+        matchingLine[0] = iRow;
+        matchingLine[1] = offsetForCols + jCol;
+        matchingType->InsertNextValue(3);
         break;
     }
+    matchingCells->InsertNextCell(VTK_LINE, 2, matchingLine);
+    matchingDistance->InsertNextValue(distanceMatrix(iRow, jCol));
   }
 
   matchingCells->SetPoints(matchingPoints);
   output_matching->ShallowCopy(matchingCells);
   output_matching->GetCellData()->AddArray(matchingType);
   output_matching->GetCellData()->AddArray(matchingDistance);
+  output_matching->GetPointData()->AddArray(matchingPointCurveIndex);
 
   pathCells->SetPoints(pathPoints);
   output_path->ShallowCopy(pathCells);
