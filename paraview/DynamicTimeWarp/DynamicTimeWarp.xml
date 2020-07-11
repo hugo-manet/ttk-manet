@@ -8,126 +8,184 @@
 
 <ServerManagerConfiguration>
     <ProxyGroup name="filters">
-        <SourceProxy name="DynamicTimeWarp" class="ttkDynamicTimeWarp" label="TTK DynamicTimeWarp">
-           <Documentation long_help="DynamicTimeWarp Long" short_help="DynamicTimeWarp Short">
-               Computes a temporal map between two curves, which are presented as a matrix distance.
-           </Documentation>
+        <SourceProxy name="DynamicTimeWarp"
+            class="ttkDynamicTimeWarp"
+            label="TTK DynamicTimeWarp">
+            <Documentation long_help="DynamicTimeWarp Long"
+                short_help="DynamicTimeWarp Short">
+                Computes a temporal map between two curves,
+                which are presented as a matrix distance.
+            </Documentation>
 
             <!-- INPUT -->
-               <InputProperty name="Input" command="SetInputConnection">
-                    <ProxyGroupDomain name="groups">
-                        <Group name="sources" />
-                        <Group name="filters" />
-                    </ProxyGroupDomain>
-                    <DataTypeDomain name="input_type">
-                        <DataType value="vtkTable" />
-                    </DataTypeDomain>
-                    <InputArrayDomain name="input_scalars" number_of_components="1">
-                        <Property name="Input" function="FieldDataSelection" />
-                    </InputArrayDomain>
-                    <Documentation>A distance matrix between the points of the two sequences.</Documentation>
-                </InputProperty>
+            <InputProperty name="Input" command="SetInputConnection">
+                <ProxyGroupDomain name="groups">
+                    <Group name="sources" />
+                    <Group name="filters" />
+                </ProxyGroupDomain>
+                <DataTypeDomain name="input_type">
+                    <DataType value="vtkTable" />
+                </DataTypeDomain>
+                <InputArrayDomain name="input_scalars" number_of_components="1">
+                    <Property name="Input" function="FieldDataSelection" />
+                </InputArrayDomain>
+                <Documentation>
+                    A distance matrix between the points of the two sequences.
+                </Documentation>
+            </InputProperty>
 
-    <!-- INPUT PARAMETER WIDGETS -->
-      <IntVectorProperty
-        name="SelectFieldsWithRegexp"
-        label="Select Fields with a Regexp"
-        command="SetSelectFieldsWithRegexp"
-        number_of_elements="1"
-        default_values="0"
-        panel_visibility="advanced">
-        <BooleanDomain name="bool"/>
-        <Documentation>
-          Select input scalar fields matching a regular expression.
-        </Documentation>
-      </IntVectorProperty>
+            <!-- INPUT PARAMETER WIDGETS -->
+            <IntVectorProperty
+                name="SelectFieldsWithRegexp"
+                label="Select Distance Matrix Fields with a Regexp"
+                command="SetSelectFieldsWithRegexp"
+                number_of_elements="1"
+                default_values="0"
+                panel_visibility="advanced">
+                <BooleanDomain name="bool"/>
+                <Documentation>
+                    Select input scalar fields matching a regular expression.
+                </Documentation>
+            </IntVectorProperty>
 
-      <StringVectorProperty command="SetScalarFields"
-        clean_command="ClearScalarFields"
-        label="Input Columns"
-        name="ScalarFields"
-        number_of_elements="0"
-        default_values="1"
-        number_of_elements_per_command="1"
-        repeat_command="1">
-        <ArrayListDomain name="array_list"
-          default_values="1">
-          <RequiredProperties>
-            <Property name="Input"
-              function="Input" />
-          </RequiredProperties>
-        </ArrayListDomain>
-        <Hints>
-          <NoDefault />
-          <PropertyWidgetDecorator type="GenericDecorator"
-                                   mode="visibility"
-                                   property="SelectFieldsWithRegexp"
-                                   value="0" />
-        </Hints>
-        <Documentation>
-          Select the scalar fields to process.
-        </Documentation>
-      </StringVectorProperty>
+            <StringVectorProperty command="SetScalarFields"
+                clean_command="ClearScalarFields"
+                label="Input Columns"
+                name="ScalarFields"
+                number_of_elements="0"
+                default_values="1"
+                number_of_elements_per_command="1"
+                repeat_command="1">
+                <ArrayListDomain name="array_list"
+                    default_values="1">
+                    <RequiredProperties>
+                        <Property name="Input"
+                            function="Input" />
+                    </RequiredProperties>
+                </ArrayListDomain>
+                <Hints>
+                    <NoDefault />
+                    <PropertyWidgetDecorator type="GenericDecorator"
+                        mode="visibility"
+                        property="SelectFieldsWithRegexp"
+                        value="0" />
+                </Hints>
+                <Documentation>
+                    Select the scalar fields that are part of the distance matrix.
+                </Documentation>
+            </StringVectorProperty>
 
-      <StringVectorProperty
-         name="Regexp"
-         command="SetRegexpString"
-         number_of_elements="1"
-         default_values=".*"
-         panel_visibility="advanced">
-        <Hints>
-          <PropertyWidgetDecorator type="GenericDecorator"
-                                   mode="visibility"
-                                   property="SelectFieldsWithRegexp"
-                                   value="1" />
-        </Hints>
-         <Documentation>
-            This regexp will be used to filter the chosen fields. Only
-            matching ones will be selected.
-         </Documentation>
-      </StringVectorProperty>
-      
-      <PropertyGroup panel_widget="Line" label="Input options">
-        <Property name="SelectFieldsWithRegexp" />
-        <Property name="ScalarFields" />
-        <Property name="Regexp" />
-      </PropertyGroup>
+            <StringVectorProperty
+                name="Regexp"
+                command="SetRegexpString"
+                number_of_elements="1"
+                default_values=".*"
+                panel_visibility="advanced">
+                <Hints>
+                    <PropertyWidgetDecorator type="GenericDecorator"
+                        mode="visibility"
+                        property="SelectFieldsWithRegexp"
+                        value="1" />
+                </Hints>
+                <Documentation>
+                    This regexp will be used to filter the chosen fields. Only
+                    matching ones will be considered as part of the distance matrix.
+                </Documentation>
+            </StringVectorProperty>
+
+            <IntVectorProperty
+                name="SplitMatrix"
+                label="Crop matrix to a block"
+                command="SetSplitMatrix"
+                number_of_elements="1"
+                default_values="0">
+                <BooleanDomain name="bool"/>
+                <Documentation>
+                    Check box if the distance matrix is a (square) auto-distance matrix,
+                    and you wish to time warp between the first part and the second.
+                </Documentation>
+            </IntVectorProperty>
+            <IntVectorProperty name="SplitPivot"
+                label="Matrix split pivot"
+                command="SetSplitPivot"
+                number_of_elements="1"
+                default_values="1">
+                <Hints>
+                    <PropertyWidgetDecorator type="GenericDecorator"
+                        mode="visibility"
+                        property="SplitMatrix"
+                        value="1" />
+                </Hints>
+                <Documentation>
+                    Index of the last point (row) corresponding to the first curve.
+                    The rest is part of the second curve (to time warp with the first).
+                </Documentation>
+                <IntRangeDomain name="range" min="0" max="100000" />
+                <!-- TODO find a way to dynamically change the max value ? -->
+            </IntVectorProperty>
 
 
-    <!-- ALGORITHM WIDGETS -->
+            <PropertyGroup panel_widget="Line" label="Input options">
+                <Property name="SelectFieldsWithRegexp" />
+                <Property name="ScalarFields" />
+                <Property name="Regexp" />
+                <Property name="SplitMatrix" />
+                <Property name="SplitPivot" />
+            </PropertyGroup>
 
+            <!-- ALGORITHM WIDGETS -->
 
-                <DoubleVectorProperty name="DeletionCost" label="DeletionCost" command="SetDeletionCost" number_of_elements="1" default_values="1">
-                    <Documentation>Cost for matching two consecutive diagrams to the same diagram in the other curve.</Documentation>
-                    <DoubleRangeDomain name="range" min="0.5" max="1" />
-                </DoubleVectorProperty>
+            <DoubleVectorProperty name="DeletionCost"
+                label="DeletionCost"
+                command="SetDeletionCost"
+                number_of_elements="1"
+                default_values="1">
+                <Documentation>
+                    Cost for matching two consecutive diagrams
+                    to the same diagram in the other curve.
+                </Documentation>
+                <DoubleRangeDomain name="range" min="0.5" max="1" />
+            </DoubleVectorProperty>
 
-                <PropertyGroup panel_widget="Line" label="Algorithm Options">
-                    <Property name="DeletionCost"/>
-                </PropertyGroup>
+            <PropertyGroup panel_widget="Line" label="Algorithm Options">
+                <Property name="DeletionCost"/>
+            </PropertyGroup>
 
-    <!-- OUTPUT PARAMETER WIDGETS -->
+            <!-- OUTPUT PARAMETER WIDGETS -->
 
-                <!-- A string parameter that controls the name of the output array -->
-                <StringVectorProperty name="OutputPathName" label="Output Path Name" command="SetOutputPathName" number_of_elements="1" default_values="WarpingPath">
-                </StringVectorProperty>
+            <!-- A string parameter that controls the name of the output array -->
+            <IntVectorProperty name="CopyRemainingDataOnPoints"
+                label="Copy Remaining Data On Points"
+                command="SetCopyRemainingDataOnPoints"
+                number_of_elements="1"
+                default_values="0">
+                <BooleanDomain name="bool"/>
+                <Hints>
+                    <PropertyWidgetDecorator type="GenericDecorator"
+                        mode="visibility"
+                        property="SplitMatrix"
+                        value="1" />
+                </Hints>
+                <Documentation>
+                    Check this box to copy the data not selected for the distance matrix
+                    as data arrays over the output points.
+                </Documentation>
+            </IntVectorProperty>
 
-                <StringVectorProperty name="OutputMatchingName" label="Output Matching Name" command="SetOutputMatchingName" number_of_elements="1" default_values="TimeWarpMatching">
-                </StringVectorProperty>
-
-                <!-- Create a UI group that contains all output parameter widgets (here only one) -->
-                <PropertyGroup panel_widget="Line" label="Output Options">
-                    <Property name="OutputMatchingName" />
-                    <Property name="OutputPathName" />
-                </PropertyGroup>
+            <!-- Create a UI group that contains all output parameter widgets (here only one) -->
+            <PropertyGroup panel_widget="Line" label="Output Options">
+                <Property name="CopyRemainingDataOnPoints" />
+            </PropertyGroup>
 
             <!-- DEBUG -->
             ${DEBUG_WIDGETS}
 
+            <OutputPort name="Warp Path" index="0" id="port0"/>
+            <OutputPort name="Matchings" index="1" id="port1"/>
             <!-- MENU CATEGORY -->
-                <Hints>
-                    <ShowInMenu category="TTK - Misc" />
-                </Hints>
+            <Hints>
+                <ShowInMenu category="TTK - Misc" />
+            </Hints>
         </SourceProxy>
     </ProxyGroup>
 </ServerManagerConfiguration>

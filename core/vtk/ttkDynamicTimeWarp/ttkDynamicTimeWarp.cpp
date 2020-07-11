@@ -100,29 +100,59 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   ttk::Timer tm{};
 
   const auto input = vtkTable::GetData(inputVector[0]);
+  std::vector<std::string> NonscalarFields;
 
   if(SelectFieldsWithRegexp) {
     // select all input columns whose name is matching the regexp
     ScalarFields.clear();
+    NonscalarFields.clear();
     const auto n = input->GetNumberOfColumns();
     for(int jCol = 0; jCol < n; ++jCol) {
       const auto &name = input->GetColumnName(jCol);
       if(std::regex_match(name, std::regex(RegexpString))) {
         ScalarFields.emplace_back(name);
+      } else {
+        NonscalarFields.emplace_back(name);
       }
     }
+  } else if(this->SplitMatrix && this->CopyRemainingDataOnPoints) {
+    // TODO fill NonscalarFields with the absent
+    // (both are sorted increasing so it's linear)
   }
 
-  const auto nColumns = ScalarFields.size();
-  const auto nRows = static_cast<size_t>(input->GetNumberOfRows());
+  size_t nRows, nColumns;
+  if(this->SplitMatrix) {
+    size_t totalSize = static_cast<size_t>(input->GetNumberOfRows());
+    if(ScalarFields.size() != totalSize) {
+      this->printErr(
+        "Distance matrix is not a square, yet you selected SplitMatrix");
+      return 0;
+    }
+    if(this->SplitPivot >= totalSize) {
+      this->printErr("SplitPivot selected higher than matrix size");
+      return 0;
+    }
+    nRows = SplitPivot + 1;
+    nColumns = totalSize - nRows;
+  } else {
+    nColumns = ScalarFields.size();
+    nRows = static_cast<size_t>(input->GetNumberOfRows());
+  }
 
   boost::numeric::ublas::matrix<double> distanceMatrix(nRows, nColumns);
   for(size_t iRow = 0; iRow < nRows; ++iRow) {
     for(size_t jCol = 0; jCol < nColumns; ++jCol) {
-      distanceMatrix(iRow, jCol)
-        = input->GetColumnByName(ScalarFields[jCol].data())
-            ->GetVariantValue(iRow)
-            .ToDouble();
+      if(this->SplitMatrix) {
+        distanceMatrix(iRow, jCol)
+          = input->GetColumnByName(ScalarFields[nRows + jCol].data())
+              ->GetVariantValue(iRow)
+              .ToDouble();
+      } else {
+        distanceMatrix(iRow, jCol)
+          = input->GetColumnByName(ScalarFields[jCol].data())
+              ->GetVariantValue(iRow)
+              .ToDouble();
+      }
     }
   }
 
@@ -150,12 +180,12 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   matchingPointCurveIndex->SetName("Curve_isCols");
   for(size_t iRow = 0; iRow < nRows; ++iRow) {
     matchingPoints->InsertNextPoint(iRow, 0, 0);
-    matchingPointCurveIndex->InsertNextValue(1);
+    matchingPointCurveIndex->InsertNextValue(0);
   }
   const size_t offsetForCols = nRows;
   for(size_t jCol = 0; jCol < nColumns; ++jCol) {
     matchingPoints->InsertNextPoint(jCol, 1, 0);
-    matchingPointCurveIndex->InsertNextValue(0);
+    matchingPointCurveIndex->InsertNextValue(1);
   }
   // type is 0 for intra-curve for rows, 1 for intra-curve for cols, 2 for
   // deletion, 3 for matching
@@ -169,14 +199,26 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   for(size_t iRow = 1; iRow < nRows; ++iRow) {
     vtkIdType coords[2] = {iRow - 1, iRow};
     matchingCells->InsertNextCell(VTK_LINE, 2, coords);
-    matchingType->InsertNextValue(1);
-    matchingDistance->InsertNextValue(0.);
+    matchingType->InsertNextValue(0);
+    if(this->SplitMatrix)
+      matchingDistance->InsertNextValue(
+        input->GetColumnByName(ScalarFields[iRow].data())
+          ->GetVariantValue(iRow - 1)
+          .ToDouble());
+    else
+      matchingDistance->InsertNextValue(0.);
   }
   for(size_t jCol = 1; jCol < nColumns; ++jCol) {
     vtkIdType coords[2] = {offsetForCols + jCol - 1, offsetForCols + jCol};
     matchingCells->InsertNextCell(VTK_LINE, 2, coords);
-    matchingType->InsertNextValue(0);
-    matchingDistance->InsertNextValue(0.);
+    matchingType->InsertNextValue(1);
+    if(this->SplitMatrix)
+      matchingDistance->InsertNextValue(
+        input->GetColumnByName(ScalarFields[offsetForCols + jCol].data())
+          ->GetVariantValue(offsetForCols + jCol - 1)
+          .ToDouble());
+    else
+      matchingDistance->InsertNextValue(0.);
   }
 
   vtkNew<vtkDoubleArray> pathWeight{};

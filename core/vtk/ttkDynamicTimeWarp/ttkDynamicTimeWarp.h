@@ -46,8 +46,6 @@ private:
    * vTODO 5: Add all filter parameters only as private member variables and
    *         initialize them here.
    */
-  std::string OutputPathName{"WarpingPath"};
-  std::string OutputMatchingName{"TimeWarpMatching"};
   /** Configures the weights on the path 
    */
   double DeletionCost{0.5};
@@ -58,15 +56,21 @@ private:
   std::string RegexpString{".*"};
   std::vector<std::string> ScalarFields;
 
+  int SplitMatrix{0};
+  int SplitPivot{0};
+  int CopyRemainingDataOnPoints{0};
+
 public:
   /**
    * vTODO 6: Automatically generate getters and setters of filter
    *         parameters via vtkMacros.
    */
-  vtkSetMacro(OutputPathName, std::string);
-  vtkGetMacro(OutputPathName, std::string);
-  vtkSetMacro(OutputMatchingName, std::string);
-  vtkGetMacro(OutputMatchingName, std::string);
+  vtkSetMacro(CopyRemainingDataOnPoints, int);
+  vtkGetMacro(CopyRemainingDataOnPoints, int);
+  vtkSetMacro(SplitMatrix, int);
+  vtkGetMacro(SplitMatrix, int);
+  vtkSetMacro(SplitPivot, int);
+  vtkGetMacro(SplitPivot, int);
   vtkSetMacro(DeletionCost, double);
   vtkGetMacro(DeletionCost, double);
 
@@ -115,8 +119,8 @@ protected:
   int FillOutputPortInformation(int port, vtkInformation *info) override;
 
   /**
-   * TODO 10: Pass VTK data to the base code and convert base code output to VTK
-   *          (see cpp file)
+   * vTODO 10: Pass VTK data to the base code and convert base code output to
+   * VTK (see cpp file)
    */
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
