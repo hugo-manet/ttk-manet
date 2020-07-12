@@ -116,8 +116,16 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
       }
     }
   } else if(this->SplitMatrix && this->CopyRemainingDataOnPoints) {
-    // TODO fill NonscalarFields with the absent
-    // (both are sorted increasing so it's linear)
+    NonscalarFields.clear();
+    size_t nCols = input->GetNumberOfColumns();
+    for(size_t jSelected = 0, jCol = 0; jCol < nCols; ++jCol) {
+      const auto &name = input->GetColumnName(jCol);
+      if(ScalarFields[jSelected] == name) {
+        ++jSelected;
+      } else {
+        NonscalarFields.emplace_back(name);
+      }
+    }
   }
 
   size_t nRows, nColumns;
@@ -271,6 +279,12 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
   output_matching->GetCellData()->AddArray(matchingType);
   output_matching->GetCellData()->AddArray(matchingDistance);
   output_matching->GetPointData()->AddArray(matchingPointCurveIndex);
+  if(this->CopyRemainingDataOnPoints) {
+    for(const auto &arrayName : NonscalarFields) {
+      output_matching->GetPointData()->AddArray(
+        input->GetColumnByName(arrayName.data()));
+    }
+  }
 
   pathCells->SetPoints(pathPoints);
   output_path->ShallowCopy(pathCells);
