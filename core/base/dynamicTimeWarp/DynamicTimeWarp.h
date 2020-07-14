@@ -57,7 +57,9 @@ namespace ttk {
     std::vector<std::tuple<Direction, size_t, size_t, double>>
       computeWarpingPath(
         const boost::numeric::ublas::matrix<double> &distanceMatrix,
-        double DeletionCost) const;
+        double DeletionCost,
+        bool EditDistance,
+        const std::vector<double> &curveCompressionCost = {}) const;
 
   }; // DynamicTimeWarp class
 

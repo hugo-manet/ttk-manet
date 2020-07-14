@@ -143,6 +143,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
     nRows = SplitPivot;
     nColumns = totalSize - nRows;
   } else {
+    this->SetUseTWED(0);
     nColumns = ScalarFields.size();
     nRows = static_cast<size_t>(input->GetNumberOfRows());
   }
@@ -164,8 +165,23 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
     }
   }
 
-  auto warpingPath
-    = this->computeWarpingPath(distanceMatrix, this->DeletionCost);
+  std::vector<double> compressionDist;
+  if(this->SplitMatrix) {
+    compressionDist.push_back(0.);
+    for(int iRow = 1; iRow < nRows; ++iRow)
+      compressionDist.push_back(
+        input->GetColumnByName(ScalarFields[iRow - 1].data())
+          ->GetVariantValue(iRow)
+          .ToDouble());
+    compressionDist.push_back(0.);
+    for(int jCol = 1; jCol < nColumns; ++jCol)
+      compressionDist.push_back(
+        input->GetColumnByName(ScalarFields[nRows + jCol - 1].data())
+          ->GetVariantValue(nRows + jCol)
+          .ToDouble());
+  }
+  auto warpingPath = this->computeWarpingPath(
+    distanceMatrix, this->DeletionCost, this->UseTWED, compressionDist);
 
   auto output_path = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(0)->Get(vtkDataObject::DATA_OBJECT()));
@@ -207,10 +223,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
     matchingCells->InsertNextCell(VTK_LINE, 2, coords);
     matchingType->InsertNextValue(0);
     if(this->SplitMatrix)
-      matchingDistance->InsertNextValue(
-        input->GetColumnByName(ScalarFields[iRow].data())
-          ->GetVariantValue(iRow - 1)
-          .ToDouble());
+      matchingDistance->InsertNextValue(compressionDist[iRow]);
     else
       matchingDistance->InsertNextValue(0.);
   }
@@ -219,10 +232,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
     matchingCells->InsertNextCell(VTK_LINE, 2, coords);
     matchingType->InsertNextValue(1);
     if(this->SplitMatrix)
-      matchingDistance->InsertNextValue(
-        input->GetColumnByName(ScalarFields[offsetForCols + jCol].data())
-          ->GetVariantValue(offsetForCols + jCol - 1)
-          .ToDouble());
+      matchingDistance->InsertNextValue(compressionDist[offsetForCols + jCol]);
     else
       matchingDistance->InsertNextValue(0.);
   }
