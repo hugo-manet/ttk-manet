@@ -60,8 +60,7 @@ vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
     auto dir = pathDirection(iRow, jCol);
     double multiplier = (dir == Direction::DIR_BOTH) ? 1 : DeletionCost;
     // pushed with a wrong (incomplete) weight, completed after
-    retVal.push_back(
-      {dir, iRow, jCol, distanceMatrix(iRow, jCol) * multiplier});
+    retVal.push_back({dir, iRow, jCol, dynCostPath(iRow, jCol)});
     switch(dir) {
       case Direction::DIR_BOTH:
         --iRow;
@@ -74,8 +73,8 @@ vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
         --iRow;
         break;
     }
-    // complete
-    get<3>(*(retVal.rbegin())) += distanceMatrix(iRow, jCol) * multiplier;
+    // complete weight
+    get<3>(*(retVal.rbegin())) -= dynCostPath(iRow, jCol);
   }
 
   reverse(retVal.begin(), retVal.end());
