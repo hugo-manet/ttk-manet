@@ -58,6 +58,7 @@ private:
   int SplitMatrix{0};
   int SplitPivot{0};
   int CopyRemainingDataOnPoints{0};
+  int UseTWED{0};
 
 public:
   /**
@@ -66,6 +67,8 @@ public:
    */
   vtkSetMacro(CopyRemainingDataOnPoints, int);
   vtkGetMacro(CopyRemainingDataOnPoints, int);
+  vtkSetMacro(UseTWED, int);
+  vtkGetMacro(UseTWED, int);
   vtkSetMacro(SplitMatrix, int);
   vtkGetMacro(SplitMatrix, int);
   vtkSetMacro(SplitPivot, int);

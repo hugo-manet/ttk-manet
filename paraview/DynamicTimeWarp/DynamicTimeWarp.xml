@@ -122,6 +122,23 @@
                 <IntRangeDomain name="range" min="1" max="100000" />
                 <!-- TODO find a way to dynamically change the max value ? -->
             </IntVectorProperty>
+            <IntVectorProperty name="UseTWED"
+                label="Use an edit distance instead (TWED)"
+                command="SetUseTWED"
+                number_of_elements="1"
+                default_values="0">
+                <BooleanDomain name="bool"/>
+                <Hints>
+                    <PropertyWidgetDecorator type="GenericDecorator"
+                        mode="visibility"
+                        property="SplitMatrix"
+                        value="1" />
+                </Hints>
+                <Documentation>
+                    Check this box to use an edit distance instead of a classic Dynamic Time Warp.
+                    DeletionCost then becomes a constant suppression cost instead.
+                </Documentation>
+            </IntVectorProperty>
 
 
             <PropertyGroup panel_widget="Line" label="Input options">
@@ -143,7 +160,7 @@
                     Cost for matching two consecutive diagrams
                     to the same diagram in the other curve.
                 </Documentation>
-                <DoubleRangeDomain name="range" min="0.5" max="1" />
+                <DoubleRangeDomain name="range" />
             </DoubleVectorProperty>
 
             <PropertyGroup panel_widget="Line" label="Algorithm Options">

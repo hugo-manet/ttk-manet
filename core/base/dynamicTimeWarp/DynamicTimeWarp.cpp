@@ -9,7 +9,9 @@ using namespace ttk;
 vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
   DynamicTimeWarp::computeWarpingPath(
     const boost::numeric::ublas::matrix<double> &distanceMatrix,
-    double DeletionCost) const {
+    double DeletionCost,
+    bool EditDistance,
+    const std::vector<double> &curveCompressionCost) const {
   vector<tuple<Direction, size_t, size_t, double>> retVal;
 
   size_t nRows = distanceMatrix.size1(), nCols = distanceMatrix.size2();
@@ -26,19 +28,24 @@ vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
    * going out of the table
    */
   dynCostPath(0, 0) = distanceMatrix(0, 0);
-  auto propagateTo
-    = [&](size_t iRowStart, size_t jColStart, size_t deltaRow, size_t deltaCol,
-          Direction dir, double multiplier) {
-        double newCost
-          = dynCostPath(iRowStart, jColStart)
-            + multiplier
-                * (distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol)
-                   + distanceMatrix(iRowStart, jColStart));
-        if(dynCostPath(iRowStart + deltaRow, jColStart + deltaCol) > newCost) {
-          dynCostPath(iRowStart + deltaRow, jColStart + deltaCol) = newCost;
-          pathDirection(iRowStart + deltaRow, jColStart + deltaCol) = dir;
-        }
-      };
+  auto propagateTo = [&](size_t iRowStart, size_t jColStart, size_t deltaRow,
+                         size_t deltaCol, Direction dir, double multiplier) {
+    double newCost = dynCostPath(iRowStart, jColStart);
+    if(EditDistance && dir != Direction::DIR_BOTH) {
+      if(dir == Direction::DIR_SAME_COL)
+        newCost += DeletionCost + curveCompressionCost[iRowStart + deltaRow];
+      else
+        newCost
+          += DeletionCost + curveCompressionCost[nRows + jColStart + deltaCol];
+    } else
+      newCost += multiplier
+                 * (distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol)
+                    + distanceMatrix(iRowStart, jColStart));
+    if(dynCostPath(iRowStart + deltaRow, jColStart + deltaCol) > newCost) {
+      dynCostPath(iRowStart + deltaRow, jColStart + deltaCol) = newCost;
+      pathDirection(iRowStart + deltaRow, jColStart + deltaCol) = dir;
+    }
+  };
   for(size_t iRow = 0; iRow < nRows - 1; ++iRow) {
     for(size_t jCol = 0; jCol < nCols - 1; ++jCol) {
       // Propagate in three directions
