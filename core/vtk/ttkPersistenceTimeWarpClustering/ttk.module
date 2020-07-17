@@ -1,0 +1,9 @@
+NAME
+  ttkPersistenceTimeWarpClustering
+SOURCES
+  ttkPersistenceTimeWarpClustering.cpp
+HEADERS
+  ttkPersistenceTimeWarpClustering.h
+DEPENDS
+  ttkAlgorithm
+  persistenceTimeWarpClustering

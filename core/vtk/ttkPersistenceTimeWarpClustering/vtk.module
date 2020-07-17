@@ -1,0 +1,4 @@
+NAME
+ ttkPersistenceTimeWarpClustering
+DEPENDS
+  ttkAlgorithm

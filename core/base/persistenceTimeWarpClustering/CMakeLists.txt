@@ -1,0 +1,13 @@
+ttk_add_base_library(persistenceTimeWarpClustering
+  SOURCES
+    PersistenceTimeWarpClustering.cpp
+  HEADERS
+    PersistenceTimeWarpClustering.h
+  DEPENDS
+    persistenceDiagramClustering
+    common
+    auction
+    persistenceDiagram
+    bottleneckDistance
+    kdTree
+  )
