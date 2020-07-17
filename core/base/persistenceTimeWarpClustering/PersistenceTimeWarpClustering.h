@@ -94,7 +94,7 @@ namespace ttk {
     bool UseKmeansppInit{false};
     double DeltaLim{0.01};
     double Lambda{1.0};
-    double TimeLimit{999999};
+    double TimeLimit{1};
 
     int NumberOfClusters{1};
     bool UseAccelerated{false};
@@ -113,18 +113,19 @@ namespace ttk {
     std::vector<std::vector<std::vector<matchingTuple>>> &all_matchings) {
 
     Timer tm;
-    {
-      printMsg("Clustering " + std::to_string(numberOfInputs_) + " diagrams in "
-               + std::to_string(NumberOfClusters) + " cluster(s).");
-    }
 
     // No DTW, juste euclidian barycenter
     for(int iDiag = 0; iDiag < final_centroid.size(); ++iDiag) {
       std::vector<Diagram> slice;
       slice.reserve(numberOfInputs_);
       for(auto &curve : intermediateDiagramCurves) {
-
         slice.emplace_back(curve[iDiag]);
+      }
+      numberOfInputs_ = slice.size();
+      {
+        printMsg("Clustering " + std::to_string(numberOfInputs_)
+                 + " diagrams in " + std::to_string(NumberOfClusters)
+                 + " cluster(s).");
       }
 
       PersistenceDiagramBarycenter<double> persistenceDiagramsBarycenter;
@@ -144,7 +145,6 @@ namespace ttk {
 
       persistenceDiagramsBarycenter.execute(
         slice, final_centroid[iDiag], all_matchings);
-      ;
     }
 
     printMsg("Complete", 1, tm.getElapsedTime(), threadNumber_);
