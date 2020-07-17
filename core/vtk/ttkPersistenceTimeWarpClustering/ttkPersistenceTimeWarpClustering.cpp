@@ -47,6 +47,11 @@ int ttkPersistenceTimeWarpClustering::RequestData(
   std::vector<vtkMultiBlockDataSet *> blocks(nCurves);
   std::vector<std::vector<vtkUnstructuredGrid *>> inputDiagramGrids(nCurves);
 
+  if(nCurves == 0) {
+    this->printErr("Input is empty");
+    return 0;
+  }
+
   // number of diagrams per input block
   std::vector<size_t> nDiagOfCurve(nCurves);
 
@@ -62,12 +67,30 @@ int ttkPersistenceTimeWarpClustering::RequestData(
   }
 
   // Sanity check
-  for(const auto &curveGrid : inputDiagramGrids)
+  for(const auto &curveGrid : inputDiagramGrids) {
+    if(nDiagOfCurve[0] != curveGrid.size()) {
+      this->printErr("Input curves aren't all the same size. Fatal for now");
+      return 0;
+    }
     for(const auto &vtu : curveGrid)
       if(vtu == nullptr) {
         this->printErr("Input diagrams are not all vtkUnstructuredGrid");
         return 0;
       }
+  }
+
+  std::vector<DiagramCurve> inputCurves;
+  for(const auto &curveGrid : inputDiagramGrids) {
+    inputCurves.emplace_back();
+    for(const auto &vtu : curveGrid) {
+      inputCurves.back().emplace_back();
+      this->getPersistenceDiagram(inputCurves.back().back(), vtu);
+    }
+  }
+  DiagramCurve barycenter(nDiagOfCurve[0]);
+  using dataType = double;
+  std::vector<std::vector<std::vector<matchingTuple>>> all_matchings_;
+  this->execute(inputCurves, barycenter, all_matchings_);
 
   // Set outputs
   auto outputInitialDiagrams = vtkMultiBlockDataSet::SafeDownCast(
