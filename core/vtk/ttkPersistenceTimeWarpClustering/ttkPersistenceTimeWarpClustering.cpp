@@ -10,14 +10,14 @@ vtkStandardNewMacro(ttkPersistenceTimeWarpClustering)
 
   ttkPersistenceTimeWarpClustering::ttkPersistenceTimeWarpClustering() {
   SetNumberOfInputPorts(1);
-  SetNumberOfOutputPorts(2);
+  SetNumberOfOutputPorts(1);
 }
 
 int ttkPersistenceTimeWarpClustering::FillInputPortInformation(
   int port, vtkInformation *info) {
   if(port == 0) {
-    info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkMultiBlockDataSet");
-    info->Set(vtkDataObject::INPUT_IS_REPEATABLE(), 1);
+    info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkMultiBlockDataSet");
+    info->Set(vtkAlgorithm::INPUT_IS_REPEATABLE(), 1);
   } else
     return 0;
   return 1;
@@ -25,7 +25,12 @@ int ttkPersistenceTimeWarpClustering::FillInputPortInformation(
 
 int ttkPersistenceTimeWarpClustering::FillOutputPortInformation(
   int port, vtkInformation *info) {
+  // TODO remove
+  if(port != 0)
+    return 1;
   if(port == 0 || port == 1)
+    info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkMultiBlockDataSet");
+  else if(port == 2)
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkUnstructuredGrid");
   else
     return 0;
@@ -40,54 +45,81 @@ int ttkPersistenceTimeWarpClustering::RequestData(
   Memory m;
 
   // Get input data
-  std::vector<vtkUnstructuredGrid *> inputDiagrams;
 
-  auto nBlocks = inputVector[0]->GetNumberOfInformationObjects();
-  std::vector<vtkMultiBlockDataSet *> blocks(nBlocks);
+  auto nCurves = inputVector[0]->GetNumberOfInformationObjects();
+  std::vector<vtkMultiBlockDataSet *> blocks(nCurves);
+  std::vector<std::vector<vtkUnstructuredGrid *>> inputDiagramGrids(nCurves);
 
-  if(nBlocks != 2) {
-    this->printWrn(
-      "Only dealing with two MultiBlockDataSets for now. Come back later !");
+  if(nCurves != 2) {
+    this->printErr("Only dealing with two MultiBlockDataSets for now. You gave "
+                   + std::to_string(nCurves));
     return 0;
   }
+  this->printMsg("OK, great");
 
   // number of diagrams per input block
-  std::array<size_t, 2> nInputs{0, 0};
+  std::array<size_t, 2> nDiagOfCurve{0, 0};
 
-  for(int i = 0; i < nBlocks; ++i) {
-    blocks[i] = vtkMultiBlockDataSet::GetData(inputVector[0], i);
-    if(blocks[i] != nullptr) {
-      nInputs[i] = blocks[i]->GetNumberOfBlocks();
-      for(size_t j = 0; j < nInputs[i]; ++j) {
-        inputDiagrams.emplace_back(
-          vtkUnstructuredGrid::SafeDownCast(blocks[i]->GetBlock(j)));
+  for(int iCurve = 0; iCurve < nCurves; ++iCurve) {
+    blocks[iCurve] = vtkMultiBlockDataSet::GetData(inputVector[0], iCurve);
+    if(blocks[iCurve] != nullptr) {
+      nDiagOfCurve[iCurve] = blocks[iCurve]->GetNumberOfBlocks();
+      for(size_t jDiag = 0; jDiag < nDiagOfCurve[iCurve]; ++jDiag) {
+        inputDiagramGrids[iCurve].emplace_back(
+          vtkUnstructuredGrid::SafeDownCast(blocks[iCurve]->GetBlock(jDiag)));
       }
     }
   }
 
-  // total number of diagrams
-  const int nDiags = inputDiagrams.size();
-
   // Sanity check
-  for(const auto vtu : inputDiagrams) {
-    if(vtu == nullptr) {
-      this->printErr("Input diagrams are not all vtkUnstructuredGrid");
-      return 0;
-    }
-  }
+  for(const auto &curveGrid : inputDiagramGrids)
+    for(const auto &vtu : curveGrid)
+      if(vtu == nullptr) {
+        this->printErr("Input diagrams are not all vtkUnstructuredGrid");
+        return 0;
+      }
 
   // Set outputs
-  auto output_path = vtkUnstructuredGrid::SafeDownCast(
-    outputVector->GetInformationObject(0)->Get(vtkDataObject::DATA_OBJECT()));
-  auto output_matching = vtkUnstructuredGrid::SafeDownCast(
-    outputVector->GetInformationObject(1)->Get(vtkDataObject::DATA_OBJECT()));
+  auto outputInitialDiagrams = vtkMultiBlockDataSet::SafeDownCast(
+    outputVector->GetInformationObject(0)->Get(
+      vtkDataObject::DATA_OBJECT())); /*
+auto outputBarycenterCurves = vtkMultiBlockDataSet::SafeDownCast(
+outputVector->GetInformationObject(1)->Get(vtkDataObject::DATA_OBJECT()));
+auto outputMatching = vtkUnstructuredGrid::SafeDownCast(
+outputVector->GetInformationObject(2)->Get(vtkDataObject::DATA_OBJECT()));// */
 
-  return 0;
+  auto outputBlock = vtkSmartPointer<vtkMultiBlockDataSet>::New();
+
+  // Copy input to output, add curve and diagram index, and store diagram
+  std::vector<int> firstDiagramIDOfCurve;
+  size_t indexOfDiag;
+  for(int iCurve = 0; iCurve < nCurves; ++iCurve) {
+    auto curveBlock = vtkSmartPointer<vtkMultiBlockDataSet>::New();
+    for(int jDiag = 0; jDiag < nDiagOfCurve[iCurve]; ++jDiag) {
+      auto &diag = inputDiagramGrids[iCurve][jDiag];
+      vtkNew<vtkIntArray> curveIndex_p{};
+      curveIndex_p->SetName("CurveID");
+      curveIndex_p->Resize(diag->GetNumberOfPoints());
+      curveIndex_p->FillValue(iCurve);
+      diag->GetPointData()->AddArray(curveIndex_p);
+      vtkNew<vtkIntArray> curveIndex_c{};
+      curveIndex_c->SetName("CurveID");
+      curveIndex_c->Resize(diag->GetNumberOfCells());
+      curveIndex_c->FillValue(iCurve);
+      diag->GetCellData()->AddArray(curveIndex_c);
+
+      curveBlock->SetBlock(jDiag, diag);
+    }
+    outputBlock->SetBlock(iCurve, curveBlock);
+    this->printWrn("Added curve n°" + std::to_string(iCurve));
+  }
+  outputInitialDiagrams->ShallowCopy(outputBlock);
+
+  return 1;
 }
 
 double ttkPersistenceTimeWarpClustering::getPersistenceDiagram(
-  std::vector<diagramType> &diagram,
-  vtkUnstructuredGrid *CTPersistenceDiagram_) {
+  ttk::Diagram &diagram, vtkUnstructuredGrid *CTPersistenceDiagram_) {
   vtkIntArray *vertexIdentifierScalars
     = vtkIntArray::SafeDownCast(CTPersistenceDiagram_->GetPointData()->GetArray(
       ttk::VertexScalarFieldName));
@@ -229,7 +261,7 @@ double ttkPersistenceTimeWarpClustering::getPersistenceDiagram(
 
   return max_dimension;
 }
-
+/*
 vtkSmartPointer<vtkUnstructuredGrid>
   ttkPersistenceTimeWarpClustering::createOutputCentroids() {
   this->printMsg("Creating vtk diagrams", debug::Priority::VERBOSE);
@@ -732,3 +764,4 @@ vtkSmartPointer<vtkUnstructuredGrid>
 
   return matchingMesh;
 }
+// */

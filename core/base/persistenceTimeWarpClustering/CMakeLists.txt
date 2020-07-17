@@ -5,6 +5,7 @@ ttk_add_base_library(persistenceTimeWarpClustering
     PersistenceTimeWarpClustering.h
   DEPENDS
     persistenceDiagramClustering
+    persistenceDiagramDistanceMatrix
     common
     auction
     persistenceDiagram

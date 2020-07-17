@@ -17,13 +17,6 @@
 
 #pragma once
 
-#ifndef diagramTuple
-#define diagramTuple                                                       \
-  std::tuple<ttk::SimplexId, ttk::CriticalType, ttk::SimplexId,            \
-             ttk::CriticalType, dataType, ttk::SimplexId, dataType, float, \
-             float, float, dataType, float, float, float>
-#endif
-
 #define BLocalMax ttk::CriticalType::Local_maximum
 #define BLocalMin ttk::CriticalType::Local_minimum
 #define BSaddle1 ttk::CriticalType::Saddle1
@@ -259,24 +252,11 @@ public:
 protected:
   ttkPersistenceTimeWarpClustering();
 
-  using diagramType = std::tuple<ttk::SimplexId,
-                                 ttk::CriticalType,
-                                 ttk::SimplexId,
-                                 ttk::CriticalType,
-                                 double,
-                                 ttk::SimplexId,
-                                 double,
-                                 float,
-                                 float,
-                                 float,
-                                 double,
-                                 float,
-                                 float,
-                                 float>;
+  using diagramType = ttk::DiagramTuple;
 
   using matchingType = std::tuple<ttk::SimplexId, ttk::SimplexId, double>;
 
-  double getPersistenceDiagram(std::vector<diagramType> &diagram,
+  double getPersistenceDiagram(ttk::Diagram &diagram,
                                vtkUnstructuredGrid *CTPersistenceDiagram_);
 
   int FillInputPortInformation(int port, vtkInformation *info) override;
@@ -291,10 +271,9 @@ protected:
                   vtkInformationVector *outputVector) override;
 
 private:
-  std::vector<std::vector<diagramType>> intermediateDiagrams_{};
+  std::vector<ttk::DiagramCurve> intermediateDiagramsCurves_{};
   std::vector<std::vector<std::vector<matchingType>>> all_matchings_{};
-  std::vector<std::vector<diagramType>> final_centroids_{};
-  std::vector<int> inv_clustering_{};
+  ttk::DiagramCurve final_centroid_{};
 
   // vtkUnstructuredGrid* output_clusters_;
   // vtkUnstructuredGrid* output_centroids_;

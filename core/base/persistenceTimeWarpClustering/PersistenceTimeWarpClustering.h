@@ -17,13 +17,6 @@
 
 #pragma once
 
-#ifndef diagramTuple
-#define diagramTuple                                                       \
-  std::tuple<ttk::SimplexId, ttk::CriticalType, ttk::SimplexId,            \
-             ttk::CriticalType, dataType, ttk::SimplexId, dataType, float, \
-             float, float, dataType, float, float, float>
-#endif
-
 #ifndef BNodeType
 #define BNodeType ttk::CriticalType
 #define BLocalMax ttk::CriticalType::Local_maximum
@@ -40,6 +33,7 @@
 // #include <PersistenceDiagram.h>
 //
 #include <PersistenceDiagramBarycenter.h>
+#include <PersistenceDiagramDistanceMatrix.h>
 //
 // #include <limits>
 //
@@ -51,6 +45,7 @@ using namespace ttk;
 
 namespace ttk {
 
+  using DiagramCurve = std::vector<ttk::Diagram>;
   class PersistenceTimeWarpClustering : virtual public Debug {
 
   public:
@@ -61,9 +56,9 @@ namespace ttk {
     ~PersistenceTimeWarpClustering(){};
 
     template <class dataType>
-    std::vector<int> execute(
-      std::vector<std::vector<diagramTuple>> &intermediateDiagrams,
-      std::vector<std::vector<diagramTuple>> &centroids,
+    int execute(
+      std::vector<ttk::DiagramCurve> &intermediateDiagramCurves,
+      ttk::DiagramCurve &final_centroid,
       std::vector<std::vector<std::vector<matchingTuple>>> &all_matchings);
 
     inline int setNumberOfInputs(int numberOfInputs) {
@@ -98,13 +93,13 @@ namespace ttk {
     bool UseInterruptible{true};
     double Alpha{1.0};
     bool UseAdditionalPrecision{false};
+    bool UseKmeansppInit{false};
     double DeltaLim{0.01};
     double Lambda{1.0};
     double TimeLimit{999999};
 
     int NumberOfClusters{1};
     bool UseAccelerated{false};
-    bool UseKmeansppInit{false};
 
     int points_added_;
     int points_deleted_;
@@ -114,9 +109,9 @@ namespace ttk {
   };
 
   template <class dataType>
-  std::vector<int> PersistenceTimeWarpClustering::execute(
-    std::vector<std::vector<diagramTuple>> &intermediateDiagrams,
-    std::vector<std::vector<diagramTuple>> &final_centroids,
+  int PersistenceTimeWarpClustering::execute(
+    std::vector<ttk::DiagramCurve> &intermediateDiagramCurves,
+    ttk::DiagramCurve &final_centroid,
     std::vector<std::vector<std::vector<matchingTuple>>> &all_matchings) {
 
     Timer tm;
@@ -125,212 +120,36 @@ namespace ttk {
                + std::to_string(NumberOfClusters) + " cluster(s).");
     }
 
-    std::vector<std::vector<diagramTuple>> data_min(numberOfInputs_);
-    std::vector<std::vector<diagramTuple>> data_sad(numberOfInputs_);
-    std::vector<std::vector<diagramTuple>> data_max(numberOfInputs_);
+    // No DTW, juste euclidian barycenter
+    for(int iDiag = 0; iDiag < final_centroid.size(); ++iDiag) {
+      std::vector<Diagram> slice;
+      slice.reserve(numberOfInputs_);
+      for(auto &curve : intermediateDiagramCurves) {
 
-    std::vector<std::vector<int>> data_min_idx(numberOfInputs_);
-    std::vector<std::vector<int>> data_sad_idx(numberOfInputs_);
-    std::vector<std::vector<int>> data_max_idx(numberOfInputs_);
-
-    std::vector<int> inv_clustering(numberOfInputs_);
-
-    bool do_min = false;
-    bool do_sad = false;
-    bool do_max = false;
-
-    // Create diagrams for min, saddle and max persistence pairs
-    for(int i = 0; i < numberOfInputs_; i++) {
-      std::vector<diagramTuple> &CTDiagram = intermediateDiagrams[i];
-
-      for(size_t j = 0; j < CTDiagram.size(); ++j) {
-        diagramTuple t = CTDiagram[j];
-
-        BNodeType nt1 = std::get<1>(t);
-        BNodeType nt2 = std::get<3>(t);
-
-        dataType dt = std::get<4>(t);
-        // if (abs<dataType>(dt) < zeroThresh) continue;
-        if(dt > 0) {
-          if(nt1 == BLocalMin && nt2 == BLocalMax) {
-            data_max[i].push_back(t);
-            data_max_idx[i].push_back(j);
-            do_max = true;
-          } else {
-            if(nt1 == BLocalMax || nt2 == BLocalMax) {
-              data_max[i].push_back(t);
-              data_max_idx[i].push_back(j);
-              do_max = true;
-            }
-            if(nt1 == BLocalMin || nt2 == BLocalMin) {
-              data_min[i].push_back(t);
-              data_min_idx[i].push_back(j);
-              do_min = true;
-            }
-            if((nt1 == BSaddle1 && nt2 == BSaddle2)
-               || (nt1 == BSaddle2 && nt2 == BSaddle1)) {
-              data_sad[i].push_back(t);
-              data_sad_idx[i].push_back(j);
-              do_sad = true;
-            }
-          }
-        }
-      }
-    }
-
-    {
-      std::stringstream msg;
-      switch(PairTypeClustering) {
-        case(0):
-          msg << "Only MIN-SAD Pairs";
-          do_max = false;
-          do_sad = false;
-          break;
-        case(1):
-          msg << "Only SAD-SAD Pairs";
-          do_max = false;
-          do_min = false;
-          break;
-        case(2):
-          msg << "Only SAD-MAX Pairs";
-          do_min = false;
-          do_sad = false;
-          break;
-        default:
-          msg << "All critical pairs: "
-                 "global clustering";
-          break;
-      }
-      printMsg(msg.str());
-    }
-
-    vector<vector<vector<vector<matchingTuple>>>>
-      all_matchings_per_type_and_cluster;
-    PDClustering<dataType> KMeans = PDClustering<dataType>();
-    KMeans.setNumberOfInputs(numberOfInputs_);
-    KMeans.setWasserstein(WassersteinMetric);
-    KMeans.setUseProgressive(UseProgressive);
-    KMeans.setAccelerated(UseAccelerated);
-    KMeans.setUseKDTree(true);
-    KMeans.setTimeLimit(TimeLimit);
-    KMeans.setGeometricalFactor(Alpha);
-    KMeans.setLambda(Lambda);
-    KMeans.setDeterministic(Deterministic);
-    KMeans.setForceUseOfAlgorithm(ForceUseOfAlgorithm);
-    KMeans.setDebugLevel(debugLevel_);
-    KMeans.setDeltaLim(DeltaLim);
-    KMeans.setUseDeltaLim(UseAdditionalPrecision);
-    KMeans.setDistanceWritingOptions(DistanceWritingOptions);
-    KMeans.setKMeanspp(UseKmeansppInit);
-    KMeans.setK(NumberOfClusters);
-    KMeans.setDiagrams(&data_min, &data_sad, &data_max);
-    KMeans.setDos(do_min, do_sad, do_max);
-    inv_clustering
-      = KMeans.execute(final_centroids, all_matchings_per_type_and_cluster);
-    vector<vector<int>> centroids_sizes = KMeans.get_centroids_sizes();
-
-    /// Reconstruct matchings
-    //
-    std::vector<int> cluster_size;
-    std::vector<int> idxInCluster(numberOfInputs_);
-
-    for(int j = 0; j < numberOfInputs_; ++j) {
-      unsigned int c = inv_clustering[j];
-      if(c + 1 > cluster_size.size()) {
-        cluster_size.resize(c + 1);
-        cluster_size[c] = 1;
-        idxInCluster[j] = 0;
-      } else {
-        cluster_size[c]++;
-        idxInCluster[j] = cluster_size[c] - 1;
-      }
-    }
-
-    all_matchings.resize(NumberOfClusters);
-    for(int c = 0; c < NumberOfClusters; c++) {
-      all_matchings[c].resize(numberOfInputs_);
-    }
-    for(int i = 0; i < numberOfInputs_; i++) {
-      unsigned int c = inv_clustering[i];
-      // cout<<"CLUSTER : "<<inv_clustering[i]<<endl;
-      // LARGEST PAIR MUST BE FIRST
-      if(do_max) {
-        matchingTuple t
-          = all_matchings_per_type_and_cluster[c][2][idxInCluster[i]][0];
-        int bidder_id = std::get<0>(t);
-        if(bidder_id >= 0 && bidder_id < (int)data_max[i].size()) {
-          std::get<0>(t) = data_max_idx[i][bidder_id];
-          if(std::get<1>(t) >= 0) {
-            std::get<1>(t)
-              = std::get<1>(t) + centroids_sizes[c][0] + centroids_sizes[c][1];
-          } else {
-            std::get<1>(t) = -1;
-          }
-          all_matchings[inv_clustering[i]][i].push_back(t);
-        }
-      }
-      if(do_min) {
-        for(unsigned int j = 0;
-            j
-            < all_matchings_per_type_and_cluster[c][0][idxInCluster[i]].size();
-            j++) {
-          matchingTuple t
-            = all_matchings_per_type_and_cluster[c][0][idxInCluster[i]][j];
-          int bidder_id = std::get<0>(t);
-          if(bidder_id >= 0 && bidder_id < (int)data_min[i].size()) {
-            std::get<0>(t) = data_min_idx[i][bidder_id];
-            // cout<<" IDS :  "<<bidder_id<<" "<<std::get<0>(t)<<endl;
-            if(std::get<1>(t) < 0) {
-              std::get<1>(t) = -1;
-            }
-            all_matchings[inv_clustering[i]][i].push_back(t);
-          }
-        }
+        slice.emplace_back(curve[iDiag]);
       }
 
-      if(do_sad) {
-        for(unsigned int j = 1;
-            j
-            < all_matchings_per_type_and_cluster[c][1][idxInCluster[i]].size();
-            j++) {
-          matchingTuple t
-            = all_matchings_per_type_and_cluster[c][1][idxInCluster[i]][j];
-          int bidder_id = std::get<0>(t);
-          if(bidder_id >= 0 && bidder_id < (int)data_sad[i].size()) {
-            std::get<0>(t) = data_sad_idx[i][bidder_id];
-            if(std::get<1>(t) >= 0) {
-              std::get<1>(t) = std::get<1>(t) + centroids_sizes[c][0];
-            } else {
-              std::get<1>(t) = -1;
-            }
-            all_matchings[inv_clustering[i]][i].push_back(t);
-          }
-        }
-      }
+      PersistenceDiagramBarycenter<double> persistenceDiagramsBarycenter;
+      persistenceDiagramsBarycenter.setWasserstein("2");
+      persistenceDiagramsBarycenter.setMethod(2);
+      persistenceDiagramsBarycenter.setNumberOfInputs(numberOfInputs_);
+      persistenceDiagramsBarycenter.setTimeLimit(TimeLimit);
+      persistenceDiagramsBarycenter.setDeterministic(Deterministic);
+      persistenceDiagramsBarycenter.setUseProgressive(UseProgressive);
+      // persistenceDiagramsBarycenter.setDebugLevel(debugLevel_);
+      // persistenceDiagramsBarycenter.setThreadNumber(threadNumber_);
+      persistenceDiagramsBarycenter.setAlpha(Alpha);
+      persistenceDiagramsBarycenter.setLambda(Lambda);
+      // persistenceDiagramsBarycenter.setReinitPrices(ReinitPrices);
+      // persistenceDiagramsBarycenter.setEpsilonDecreases(EpsilonDecreases);
+      // persistenceDiagramsBarycenter.setEarlyStoppage(EarlyStoppage)
 
-      if(do_max) {
-        for(unsigned int j = 0;
-            j
-            < all_matchings_per_type_and_cluster[c][2][idxInCluster[i]].size();
-            j++) {
-          matchingTuple t
-            = all_matchings_per_type_and_cluster[c][2][idxInCluster[i]][j];
-          int bidder_id = std::get<0>(t);
-          if(bidder_id >= 0 && bidder_id < (int)data_max[i].size()) {
-            std::get<0>(t) = data_max_idx[i][bidder_id];
-            if(std::get<1>(t) >= 0) {
-              std::get<1>(t) = std::get<1>(t) + centroids_sizes[c][0]
-                               + centroids_sizes[c][1];
-            } else {
-              std::get<1>(t) = -1;
-            }
-            all_matchings[inv_clustering[i]][i].push_back(t);
-          }
-        }
-      }
+      persistenceDiagramsBarycenter.execute(
+        slice, final_centroid[iDiag], all_matchings);
+      ;
     }
 
     printMsg("Complete", 1, tm.getElapsedTime(), threadNumber_);
-    return inv_clustering;
+    return 1;
   }
 } // namespace ttk
