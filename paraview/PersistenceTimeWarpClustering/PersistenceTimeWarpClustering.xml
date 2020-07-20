@@ -37,6 +37,48 @@
       </InputProperty>
 
 
+       <IntVectorProperty
+          name="Method"
+          label="Algorithm"
+          command="SetMethod"
+          number_of_elements="1"
+         default_values="0"
+         panel_visibility="advanced" >
+		 <EnumerationDomain name="enum">
+          <Entry value="0" text="Progressive approach"/>
+          <Entry value="1" text="Classical Auction approach (one cluster only, SLOW)"/>
+        </EnumerationDomain>
+        <Documentation>
+          Type of algorithm for the computation of the barycenter.
+		  The Auction algorithm is computationally more expensive than
+		  the progressive approach.
+        </Documentation>
+      </IntVectorProperty>
+
+      <IntVectorProperty
+      name="ForceUseOfAlgorithm"
+      command="SetForceUseOfAlgorithm"
+      label="Force the progressive approach if 2 inputs"
+      number_of_elements="1"
+      default_values="0"
+      panel_visibility="advanced">
+      <BooleanDomain name="bool"/>
+        <Hints>
+        <PropertyWidgetDecorator type="GenericDecorator"
+                                  mode="visibility"
+                                  property="Method"
+                                  value="0" />
+        <!-- enable this widget when <property> equals <value> -->
+      </Hints>
+      <Documentation>
+        When there are only two input diagrams and one cluster, the progressive approach is not used by default to compute the barycenter.
+          Instead, the Auction Algorithm is used to compute the Wasserstein distance between the two diagrams, and the barycenter is deduced from
+          the corresponding assignments without additional computationnal cost.
+          This option forces the use of the progressive approach to compute the barycenter.
+      </Documentation>
+
+      </IntVectorProperty>
+
       <IntVectorProperty
       name="Critical pairs"
       label="Critical pairs used for the clustering"
@@ -50,6 +92,13 @@
           <Entry value="2" text="saddle-max pairs"/>
           <!-- <Entry value="1" text="legacy: doubleMunkres (Wasserstein, Bottleneck)"/> -->
         </EnumerationDomain>
+          <Hints>
+          <PropertyWidgetDecorator type="GenericDecorator"
+                                   mode="visibility"
+                                   property="Method"
+                                   value="0" />
+          <!-- enable this widget when <property> equals <value> -->
+        </Hints>
         <Documentation>
             Specify the types of critical pairs to be taken into account for the clustering.
         </Documentation>
@@ -61,6 +110,13 @@
           command="SetNumberOfClusters"
           number_of_elements="1"
           default_values="1" >
+          <Hints>
+          <PropertyWidgetDecorator type="GenericDecorator"
+                                   mode="visibility"
+                                   property="Method"
+                                   value="0" />
+          <!-- enable this widget when <property> equals <value> -->
+        </Hints>
         <Documentation>
           Number of clusters to compute.
         </Documentation>
@@ -101,6 +157,13 @@
         default_values="1"
         panel_visibility="advanced">
         <BooleanDomain name="bool"/>
+          <Hints>
+          <PropertyWidgetDecorator type="GenericDecorator"
+                                   mode="visibility"
+                                   property="Method"
+                                   value="0" />
+          <!-- enable this widget when <property> equals <value> -->
+        </Hints>
         <Documentation>
           If set to true, the barycenter is computed progressively (starting with most persistent pairs).
 		  The option may turn useful coupled with Interruptible Algorithm since the Barycenter will be computed with only a portion of the
@@ -117,6 +180,12 @@
         default_values="1"
         >
         <BooleanDomain name="bool"/>
+          <Hints>
+          <PropertyWidgetDecorator type="GenericDecorator"
+                                   mode="visibility"
+                                   property="Method"
+                                   value="0" />
+        </Hints>
         <Documentation>
             Enforce a time limit for the computation.
         </Documentation>
@@ -175,6 +244,52 @@
         </Documentation>
 
         </DoubleVectorProperty>
+
+      <IntVectorProperty
+        name="DisplayMethod"
+        command="SetDisplayMethod"
+        label="Displaying method"
+        number_of_elements="1"
+        default_values="0"
+        >
+		 <EnumerationDomain name="enum">
+          <Entry value="0" text="Compact"/>
+          <Entry value="1" text="Clusters as stars"/>
+          <Entry value="2" text="Inspect matchings"/>
+        </EnumerationDomain>
+        <Documentation>
+            Choose the displaying of the result.
+        </Documentation>
+      </IntVectorProperty>
+
+
+        <DoubleVectorProperty
+          name="Spacing"
+          label="Spacing"
+          command="SetSpacing"
+          number_of_elements="1"
+          default_values="0"
+          >
+          <Hints>
+        <PropertyWidgetDecorator type="CompositeDecorator">
+        <Expression type="or">
+        <PropertyWidgetDecorator type="GenericDecorator"
+                                   mode="visibility"
+                                   property="DisplayMethod"
+                                   value="1" >
+                           </PropertyWidgetDecorator>
+        <PropertyWidgetDecorator type="GenericDecorator"
+                                   mode="visibility"
+                                   property="DisplayMethod"
+                                   value="2" >
+                           </PropertyWidgetDecorator>
+        </Expression>
+                           </PropertyWidgetDecorator>
+        </Hints>
+        <Documentation>
+            Ajust the spacing for the display of diagrams.
+        </Documentation>
+      </DoubleVectorProperty>
 
 	  <IntVectorProperty
          name="UseAccelerated"
