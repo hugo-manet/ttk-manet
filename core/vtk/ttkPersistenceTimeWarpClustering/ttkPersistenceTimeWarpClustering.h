@@ -273,7 +273,8 @@ protected:
 private:
   std::vector<ttk::DiagramCurve> intermediateDiagramsCurves_{};
   std::vector<std::vector<std::vector<matchingType>>> all_matchings_{};
-  ttk::DiagramCurve final_centroid_{};
+  std::vector<ttk::DiagramCurve> final_centroid_{};
+  std::vector<int> inv_clustering_{};
 
   // vtkUnstructuredGrid* output_clusters_;
   // vtkUnstructuredGrid* output_centroids_;
