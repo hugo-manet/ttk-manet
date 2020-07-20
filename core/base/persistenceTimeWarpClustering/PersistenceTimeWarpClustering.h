@@ -81,6 +81,7 @@ namespace ttk {
     // Critical pairs used for clustering
     // 0:min-saddles ; 1:saddles-saddles ; 2:sad-max ; else : all
 
+    int DistanceWritingOptions{0};
     int PairTypeClustering{-1};
     bool Deterministic{true};
     int WassersteinMetric{2};
@@ -88,6 +89,7 @@ namespace ttk {
     int numberOfInputs_{};
     bool UseProgressive{true};
 
+    bool ForceUseOfAlgorithm{false};
     bool UseInterruptible{true};
     double Alpha{1.0};
     bool UseAdditionalPrecision{false};
