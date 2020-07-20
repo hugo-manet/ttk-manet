@@ -95,7 +95,7 @@ int ttkPersistenceTimeWarpClustering::RequestData(
   inv_clustering_.assign(nCurves, 0); // everybody in one cluster
 
   all_matchings_.clear();
-  this->execute(
+  this->executeTimeWarp(
     intermediateDiagramsCurves_, final_centroid_[0], all_matchings_);
 
   // Set outputs

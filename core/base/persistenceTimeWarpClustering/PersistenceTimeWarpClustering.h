@@ -32,7 +32,7 @@
 //
 // #include <PersistenceDiagram.h>
 //
-#include <PersistenceDiagramBarycenter.h>
+#include <PersistenceDiagramClustering.h>
 #include <PersistenceDiagramDistanceMatrix.h>
 //
 // #include <limits>
@@ -46,7 +46,7 @@ using namespace ttk;
 namespace ttk {
 
   using DiagramCurve = std::vector<ttk::Diagram>;
-  class PersistenceTimeWarpClustering : virtual public Debug {
+  class PersistenceTimeWarpClustering : public PersistenceDiagramClustering {
 
   public:
     PersistenceTimeWarpClustering() {
@@ -56,60 +56,14 @@ namespace ttk {
     ~PersistenceTimeWarpClustering(){};
 
     template <class dataType>
-    int execute(
+    int executeTimeWarp(
       std::vector<ttk::DiagramCurve> &intermediateDiagramCurves,
       ttk::DiagramCurve &final_centroid,
       std::vector<std::vector<std::vector<matchingTuple>>> &all_matchings);
-
-    inline int setNumberOfInputs(int numberOfInputs) {
-      numberOfInputs_ = numberOfInputs;
-      // 			if(inputData_)
-      // 			free(inputData_);
-      // 			inputData_ = (void **) malloc(numberOfInputs*sizeof(void *));
-      // 			for(int i=0 ; i<numberOfInputs ; i++){
-      // 			inputData_[i] = NULL;
-      // 			}
-      return 0;
-    }
-
-    template <class dataType>
-    static dataType abs(const dataType var) {
-      return (var >= 0) ? var : -var;
-    }
-
-  protected:
-    // Critical pairs used for clustering
-    // 0:min-saddles ; 1:saddles-saddles ; 2:sad-max ; else : all
-
-    int DistanceWritingOptions{0};
-    int PairTypeClustering{-1};
-    bool Deterministic{true};
-    int WassersteinMetric{2};
-
-    int numberOfInputs_{};
-    bool UseProgressive{true};
-
-    bool ForceUseOfAlgorithm{false};
-    bool UseInterruptible{true};
-    double Alpha{1.0};
-    bool UseAdditionalPrecision{false};
-    bool UseKmeansppInit{false};
-    double DeltaLim{0.01};
-    double Lambda{1.0};
-    double TimeLimit{1};
-
-    int NumberOfClusters{1};
-    bool UseAccelerated{false};
-
-    int points_added_;
-    int points_deleted_;
-
-    // std::vector<BidderDiagram<void>> bidder_diagrams_;
-    // std::vector<GoodDiagram<void>> barycenter_goods_;
   };
 
   template <class dataType>
-  int PersistenceTimeWarpClustering::execute(
+  int PersistenceTimeWarpClustering::executeTimeWarp(
     std::vector<ttk::DiagramCurve> &intermediateDiagramCurves,
     ttk::DiagramCurve &final_centroid,
     std::vector<std::vector<std::vector<matchingTuple>>> &all_matchings) {
@@ -130,23 +84,16 @@ namespace ttk {
                  + " cluster(s).");
       }
 
-      PersistenceDiagramBarycenter<double> persistenceDiagramsBarycenter;
-      persistenceDiagramsBarycenter.setWasserstein("2");
-      persistenceDiagramsBarycenter.setMethod(2);
-      persistenceDiagramsBarycenter.setNumberOfInputs(numberOfInputs_);
-      persistenceDiagramsBarycenter.setTimeLimit(TimeLimit);
-      persistenceDiagramsBarycenter.setDeterministic(Deterministic);
-      persistenceDiagramsBarycenter.setUseProgressive(UseProgressive);
-      // persistenceDiagramsBarycenter.setDebugLevel(debugLevel_);
-      // persistenceDiagramsBarycenter.setThreadNumber(threadNumber_);
-      persistenceDiagramsBarycenter.setAlpha(Alpha);
-      persistenceDiagramsBarycenter.setLambda(Lambda);
-      // persistenceDiagramsBarycenter.setReinitPrices(ReinitPrices);
-      // persistenceDiagramsBarycenter.setEpsilonDecreases(EpsilonDecreases);
-      // persistenceDiagramsBarycenter.setEarlyStoppage(EarlyStoppage)
-
-      persistenceDiagramsBarycenter.execute(
-        slice, final_centroid[iDiag], all_matchings);
+      this->TimeLimit /= final_centroid.size();
+      std::vector<std::vector<std::vector<matchingTuple>>> temp_matchings;
+      std::vector<Diagram> solo_centroid(1);
+      this->execute<dataType>(slice, solo_centroid, temp_matchings);
+      final_centroid[iDiag] = std::move(solo_centroid[0]);
+      solo_centroid.clear();
+      all_matchings.reserve(all_matchings.size() + temp_matchings.size());
+      std::move(std::begin(temp_matchings), std::end(temp_matchings),
+                std::back_inserter(all_matchings));
+      temp_matchings.clear();
     }
 
     printMsg("Complete", 1, tm.getElapsedTime(), threadNumber_);
