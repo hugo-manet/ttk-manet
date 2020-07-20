@@ -25,9 +25,7 @@ int ttkPersistenceTimeWarpClustering::FillInputPortInformation(
 
 int ttkPersistenceTimeWarpClustering::FillOutputPortInformation(
   int port, vtkInformation *info) {
-  if(port == 0 || port == 1)
-    info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkMultiBlockDataSet");
-  else if(port == 2)
+  if(port == 0 || port == 1 || port == 2)
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkUnstructuredGrid");
   else
     return 0;
@@ -79,66 +77,38 @@ int ttkPersistenceTimeWarpClustering::RequestData(
       }
   }
 
-  std::vector<DiagramCurve> inputCurves;
+  intermediateDiagramsCurves_.clear();
+  max_dimension_total_ = 0;
   for(const auto &curveGrid : inputDiagramGrids) {
-    inputCurves.emplace_back();
+    intermediateDiagramsCurves_.emplace_back();
     for(const auto &vtu : curveGrid) {
-      inputCurves.back().emplace_back();
-      this->getPersistenceDiagram(inputCurves.back().back(), vtu);
+      intermediateDiagramsCurves_.back().emplace_back();
+      double max_dimension = this->getPersistenceDiagram(
+        intermediateDiagramsCurves_.back().back(), vtu);
+      if(max_dimension_total_ < max_dimension) {
+        max_dimension_total_ = max_dimension;
+      }
     }
   }
-  DiagramCurve barycenter(nDiagOfCurve[0]);
-  using dataType = double;
-  std::vector<std::vector<std::vector<matchingTuple>>> all_matchings_;
-  this->execute(inputCurves, barycenter, all_matchings_);
+  final_centroid_.clear();
+  final_centroid_.emplace_back(nDiagOfCurve[0]);
+  inv_clustering_.assign(nCurves, 0); // everybody in one cluster
+
+  all_matchings_.clear();
+  this->execute(
+    intermediateDiagramsCurves_, final_centroid_[0], all_matchings_);
 
   // Set outputs
-  auto outputInitialDiagrams = vtkMultiBlockDataSet::SafeDownCast(
+  auto outputInitialDiagrams = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(0)->Get(vtkDataObject::DATA_OBJECT()));
-  auto outputBarycenterCurves = vtkMultiBlockDataSet::SafeDownCast(
+  auto outputBarycenterCurves = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(1)->Get(vtkDataObject::DATA_OBJECT()));
   auto outputMatching = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(2)->Get(vtkDataObject::DATA_OBJECT()));
 
-  // Copy input to output, add curve and diagram index, and store diagram
-  std::vector<int> firstDiagramIDOfCurve;
-  size_t indexOfDiag = 0;
-  for(int iCurve = 0; iCurve < nCurves; ++iCurve) {
-    firstDiagramIDOfCurve.push_back(indexOfDiag);
-    auto curveBlock = vtkSmartPointer<vtkMultiBlockDataSet>::New();
-    for(int jDiag = 0; jDiag < nDiagOfCurve[iCurve]; ++jDiag) {
-      auto &diag = inputDiagramGrids[iCurve][jDiag];
-      auto copiedDiag
-        = vtkSmartPointer<vtkUnstructuredGrid>::Take(diag->NewInstance());
-      copiedDiag->ShallowCopy(diag);
-
-      vtkNew<vtkIntArray> curveIndex_p{};
-      curveIndex_p->SetName("CurveID");
-      curveIndex_p->SetNumberOfTuples(copiedDiag->GetNumberOfPoints());
-      curveIndex_p->FillValue(iCurve);
-      copiedDiag->GetPointData()->AddArray(curveIndex_p);
-      vtkNew<vtkIntArray> curveIndex_c{};
-      curveIndex_c->SetName("CurveID");
-      curveIndex_c->SetNumberOfTuples(copiedDiag->GetNumberOfCells());
-      curveIndex_c->FillValue(iCurve);
-      copiedDiag->GetCellData()->AddArray(curveIndex_c);
-
-      vtkNew<vtkIntArray> diagramIndex_p{};
-      diagramIndex_p->SetName("DiagramID");
-      diagramIndex_p->SetNumberOfTuples(copiedDiag->GetNumberOfPoints());
-      diagramIndex_p->FillValue(indexOfDiag);
-      copiedDiag->GetPointData()->AddArray(diagramIndex_p);
-      vtkNew<vtkIntArray> diagramIndex_c{};
-      diagramIndex_c->SetName("DiagramID");
-      diagramIndex_c->SetNumberOfTuples(copiedDiag->GetNumberOfCells());
-      diagramIndex_c->FillValue(indexOfDiag);
-      copiedDiag->GetCellData()->AddArray(diagramIndex_c);
-
-      curveBlock->SetBlock(jDiag, copiedDiag);
-      ++indexOfDiag;
-    }
-    outputInitialDiagrams->SetBlock(iCurve, curveBlock);
-  }
+  // outputMatching->ShallowCopy(createMatchings());
+  outputInitialDiagrams->ShallowCopy(createOutputClusteredDiagrams());
+  outputBarycenterCurves->ShallowCopy(createOutputCentroids());
 
   return 1;
 }
@@ -286,3 +256,521 @@ double ttkPersistenceTimeWarpClustering::getPersistenceDiagram(
 
   return max_dimension;
 }
+
+vtkSmartPointer<vtkUnstructuredGrid>
+  ttkPersistenceTimeWarpClustering::createOutputCentroids() {
+  this->printMsg("Creating vtk diagrams", debug::Priority::VERBOSE);
+  vtkNew<vtkPoints> points{};
+
+  vtkNew<vtkUnstructuredGrid> persistenceDiagram{};
+
+  vtkNew<vtkIntArray> nodeType{};
+  nodeType->SetName("CriticalType");
+
+  vtkNew<vtkDoubleArray> persistenceScalars{};
+  persistenceScalars->SetName("Persistence");
+
+  vtkNew<vtkIntArray> idOfPair{};
+  idOfPair->SetName("PairID");
+
+  vtkNew<vtkDoubleArray> persistenceScalarsPoint{};
+  persistenceScalarsPoint->SetName("Persistence");
+
+  vtkNew<vtkIntArray> idOfDiagramPoint{};
+  idOfDiagramPoint->SetName("ClusterID");
+
+  vtkNew<vtkIntArray> pairType{};
+  pairType->SetName("PairType");
+
+  vtkNew<vtkFloatArray> coordsScalars{};
+  coordsScalars->SetNumberOfComponents(3);
+  coordsScalars->SetName("Coordinates");
+
+  int count = 0;
+  for(int jCentroid = 0; jCentroid < final_centroid_.size(); ++jCentroid)
+    for(int kDiag = 0; kDiag < final_centroid_[jCentroid].size(); ++kDiag) {
+      const std::vector<diagramType> &diagram
+        = final_centroid_[jCentroid][kDiag];
+
+      // First, add diagram points to the global input diagram
+      for(unsigned int i = 0; i < diagram.size(); ++i) {
+        vtkIdType ids[2];
+        const diagramType &t = diagram[i];
+        double x1 = std::get<6>(t);
+        double y1 = x1;
+        if(DisplayMethod == 1 && Spacing != 0) {
+          x1 += 3 * (abs(Spacing) + 0.2) * max_dimension_total_ * jCentroid;
+        }
+        double z1
+          = kDiag * max_dimension_total_; // Change 1 to jCentroid if you want
+                                          // to isolate the diagrams
+
+        float coords1[3];
+        coords1[0] = std::get<7>(t);
+        coords1[1] = std::get<8>(t);
+        coords1[2] = std::get<9>(t);
+
+        double x2 = std::get<6>(t);
+        double y2 = std::get<10>(t);
+        double z2 = kDiag * max_dimension_total_; // Change 1 to jCentroid if
+                                                  // you want to isolate the
+
+        float coords2[3];
+        coords2[0] = std::get<11>(t);
+        coords2[1] = std::get<12>(t);
+        coords2[2] = std::get<13>(t);
+
+        idOfPair->InsertTuple1(count, i);
+
+        points->InsertNextPoint(x1, y1, z1);
+        coordsScalars->InsertTuple3(
+          2 * count, coords1[0], coords1[1], coords1[2]);
+        idOfDiagramPoint->InsertTuple1(2 * count, jCentroid);
+        const ttk::CriticalType n1Type = std::get<1>(t);
+        switch(n1Type) {
+          case BLocalMin:
+            nodeType->InsertTuple1(2 * count, 0);
+            break;
+
+          case BSaddle1:
+            nodeType->InsertTuple1(2 * count, 1);
+            break;
+
+          case BSaddle2:
+            nodeType->InsertTuple1(2 * count, 2);
+            break;
+
+          case BLocalMax:
+            nodeType->InsertTuple1(2 * count, 3);
+            break;
+          default:
+            nodeType->InsertTuple1(2 * count, 0);
+        }
+        if(DisplayMethod == 1 && Spacing != 0) {
+          points->InsertNextPoint(
+            x2 + 3 * (abs(Spacing) + 0.2) * max_dimension_total_ * jCentroid,
+            y2, z2);
+        } else {
+          points->InsertNextPoint(x2, y2, z2);
+        }
+        coordsScalars->InsertTuple3(
+          2 * count + 1, coords2[0], coords2[1], coords2[2]);
+        idOfDiagramPoint->InsertTuple1(2 * count + 1, jCentroid);
+        const ttk::CriticalType n2Type = std::get<3>(t);
+        switch(n2Type) {
+          case BLocalMin:
+            nodeType->InsertTuple1(2 * count + 1, 0);
+            break;
+
+          case BSaddle1:
+            nodeType->InsertTuple1(2 * count + 1, 1);
+            break;
+
+          case BSaddle2:
+            nodeType->InsertTuple1(2 * count + 1, 2);
+            break;
+
+          case BLocalMax:
+            nodeType->InsertTuple1(2 * count + 1, 3);
+            break;
+          default:
+            nodeType->InsertTuple1(2 * count + 1, 0);
+        }
+
+        ids[0] = 2 * count;
+        ids[1] = 2 * count + 1;
+
+        persistenceDiagram->InsertNextCell(VTK_LINE, 2, ids);
+        persistenceScalars->InsertTuple1(count, y2 - x2);
+        persistenceScalarsPoint->InsertTuple1(2 * count, y2 - x2);
+        persistenceScalarsPoint->InsertTuple1(2 * count + 1, y2 - x2);
+        const ttk::SimplexId type = std::get<5>(t);
+        switch(type) {
+          case 0:
+            pairType->InsertTuple1(count, 0);
+            break;
+
+          case 1:
+            pairType->InsertTuple1(count, 1);
+            break;
+
+          case 2:
+            pairType->InsertTuple1(count, 2);
+            break;
+          default:
+            pairType->InsertTuple1(count, 0);
+        }
+        count++;
+      }
+    }
+
+  persistenceDiagram->SetPoints(points);
+  persistenceDiagram->GetCellData()->AddArray(persistenceScalars);
+  persistenceDiagram->GetCellData()->AddArray(pairType);
+  persistenceDiagram->GetCellData()->AddArray(idOfPair);
+  persistenceDiagram->GetPointData()->AddArray(nodeType);
+  persistenceDiagram->GetPointData()->AddArray(coordsScalars);
+  persistenceDiagram->GetPointData()->AddArray(idOfDiagramPoint);
+  persistenceDiagram->GetPointData()->AddArray(persistenceScalarsPoint);
+
+  return persistenceDiagram;
+}
+
+vtkSmartPointer<vtkUnstructuredGrid>
+  ttkPersistenceTimeWarpClustering::createOutputClusteredDiagrams() {
+  this->printMsg("Creating vtk outputs", debug::Priority::VERBOSE);
+  vtkNew<vtkPoints> points{};
+
+  vtkNew<vtkUnstructuredGrid> persistenceDiagram{};
+
+  vtkNew<vtkIntArray> nodeType{};
+  nodeType->SetName("CriticalType");
+
+  vtkNew<vtkDoubleArray> persistenceScalars{};
+  persistenceScalars->SetName("Persistence");
+
+  vtkNew<vtkIntArray> idOfPair{};
+  idOfPair->SetName("PairID");
+
+  vtkNew<vtkDoubleArray> persistenceScalarsPoint{};
+  persistenceScalarsPoint->SetName("Persistence");
+
+  vtkNew<vtkIntArray> idOfDiagramPoint{};
+  idOfDiagramPoint->SetName("DiagramID");
+
+  vtkNew<vtkIntArray> idOfCluster{};
+  idOfCluster->SetName("ClusterID");
+
+  vtkNew<vtkIntArray> pairType{};
+  pairType->SetName("PairType");
+
+  vtkNew<vtkFloatArray> coordsScalars{};
+  coordsScalars->SetNumberOfComponents(3);
+  coordsScalars->SetName("Coordinates");
+
+  vtkNew<ttkSimplexIdTypeArray> vertexSField{};
+  vertexSField->SetName(ttk::VertexScalarFieldName);
+  vertexSField->SetNumberOfComponents(1);
+
+  std::vector<int> cluster_size;
+  std::vector<int> idxInCluster(intermediateDiagramsCurves_.size());
+  for(size_t jCurve = 0; jCurve < intermediateDiagramsCurves_.size();
+      ++jCurve) {
+    idxInCluster[jCurve] = 0;
+  }
+
+  if(Spacing > 0) {
+    for(size_t jCurve = 0; jCurve < intermediateDiagramsCurves_.size();
+        ++jCurve) {
+      size_t c = inv_clustering_[jCurve];
+      if(c + 1 > cluster_size.size()) {
+        cluster_size.resize(c + 1);
+        cluster_size[c] = 1;
+        idxInCluster[jCurve] = 0;
+      } else {
+        cluster_size[c]++;
+        idxInCluster[jCurve] = cluster_size[c] - 1;
+      }
+    }
+  }
+  int count = 0;
+  for(unsigned int jCurve = 0; jCurve < intermediateDiagramsCurves_.size();
+      ++jCurve)
+    for(unsigned int kDiag = 0;
+        kDiag < intermediateDiagramsCurves_[jCurve].size(); ++kDiag) {
+      const std::vector<diagramType> &diagram
+        = intermediateDiagramsCurves_[jCurve][kDiag];
+
+      unsigned int c = inv_clustering_[jCurve];
+      // First, add diagram points to the global input diagram
+      for(unsigned int i = 0; i < diagram.size(); ++i) {
+        vtkIdType ids[2];
+        const diagramType t = diagram[i];
+        double x1 = std::get<6>(t);
+        double y1 = x1;
+        double z1 = kDiag * max_dimension_total_;
+
+        float coords1[3];
+        coords1[0] = std::get<7>(t);
+        coords1[1] = std::get<8>(t);
+        coords1[2] = std::get<9>(t);
+        double x2 = std::get<6>(t);
+        double y2 = std::get<10>(t);
+        double z2 = kDiag * max_dimension_total_;
+        if(DisplayMethod == 1 && Spacing > 0) {
+          // cout<<"jCurve "<<jCurve<<" size
+          // "<<cluster_size[inv_clustering[jCurve]]<<endl; cout<<"count
+          // "<<count_diagram<<endl;
+          double angle = 2 * 3.1415926 * (double)(idxInCluster[jCurve])
+                         / cluster_size[inv_clustering_[jCurve]];
+          x1 += (abs(Spacing) + .2) * 3 * max_dimension_total_ * c
+                + Spacing * max_dimension_total_ * cos(angle);
+          x2 += (abs(Spacing) + .2) * 3 * max_dimension_total_ * c
+                + Spacing * max_dimension_total_ * cos(angle);
+          y1 += Spacing * max_dimension_total_ * sin(angle);
+          y2 += Spacing * max_dimension_total_ * sin(angle);
+        } else if(DisplayMethod == 2) {
+          z2 = Spacing;
+          z1 = Spacing;
+          if(jCurve == 0) {
+            z2 = -Spacing;
+            z1 = -Spacing;
+          }
+        }
+
+        float coords2[3];
+        coords2[0] = std::get<11>(t);
+        coords2[1] = std::get<12>(t);
+        coords2[2] = std::get<13>(t);
+
+        idOfPair->InsertTuple1(count, i);
+
+        points->InsertNextPoint(x1, y1, z1);
+        coordsScalars->InsertTuple3(
+          2 * count, coords1[0], coords1[1], coords1[2]);
+        idOfDiagramPoint->InsertTuple1(2 * count, jCurve);
+        // std::cout<<"\nMAX DIM \n"<<max_dimension<<std::endl;
+        idOfCluster->InsertTuple1(2 * count, c);
+        const ttk::CriticalType n1Type = std::get<1>(t);
+        switch(n1Type) {
+          case BLocalMin:
+            nodeType->InsertTuple1(2 * count, 0);
+            break;
+
+          case BSaddle1:
+            nodeType->InsertTuple1(2 * count, 1);
+            break;
+
+          case BSaddle2:
+            nodeType->InsertTuple1(2 * count, 2);
+            break;
+
+          case BLocalMax:
+            nodeType->InsertTuple1(2 * count, 3);
+            break;
+          default:
+            nodeType->InsertTuple1(2 * count, 0);
+        }
+
+        points->InsertNextPoint(x2, y2, z2);
+        coordsScalars->InsertTuple3(
+          2 * count + 1, coords2[0], coords2[1], coords2[2]);
+        idOfDiagramPoint->InsertTuple1(2 * count + 1, jCurve);
+        idOfCluster->InsertTuple1(2 * count + 1, c);
+        const ttk::CriticalType n2Type = std::get<3>(t);
+        switch(n2Type) {
+          case BLocalMin:
+            nodeType->InsertTuple1(2 * count + 1, 0);
+            break;
+
+          case BSaddle1:
+            nodeType->InsertTuple1(2 * count + 1, 1);
+            break;
+
+          case BSaddle2:
+            nodeType->InsertTuple1(2 * count + 1, 2);
+            break;
+
+          case BLocalMax:
+            nodeType->InsertTuple1(2 * count + 1, 3);
+            break;
+          default:
+            nodeType->InsertTuple1(2 * count + 1, 0);
+        }
+
+        ids[0] = 2 * count;
+        ids[1] = 2 * count + 1;
+
+        persistenceDiagram->InsertNextCell(VTK_LINE, 2, ids);
+        persistenceScalars->InsertTuple1(count, y2 - x2);
+        persistenceScalarsPoint->InsertTuple1(2 * count, y2 - x2);
+        persistenceScalarsPoint->InsertTuple1(2 * count + 1, y2 - x2);
+        const ttk::SimplexId type = std::get<5>(t);
+        switch(type) {
+          case 0:
+            pairType->InsertTuple1(count, 0);
+            break;
+
+          case 1:
+            pairType->InsertTuple1(count, 1);
+            break;
+
+          case 2:
+            pairType->InsertTuple1(count, 2);
+            break;
+          default:
+            pairType->InsertTuple1(count, 0);
+        }
+        vertexSField->InsertTuple1(2 * count, std::get<0>(t));
+        vertexSField->InsertTuple1(2 * count + 1, std::get<2>(t));
+
+        count++;
+      }
+    }
+
+  persistenceDiagram->SetPoints(points);
+  persistenceDiagram->GetCellData()->AddArray(persistenceScalars);
+  persistenceDiagram->GetCellData()->AddArray(pairType);
+  persistenceDiagram->GetCellData()->AddArray(idOfPair);
+  persistenceDiagram->GetPointData()->AddArray(nodeType);
+  persistenceDiagram->GetPointData()->AddArray(coordsScalars);
+  persistenceDiagram->GetPointData()->AddArray(idOfDiagramPoint);
+  persistenceDiagram->GetPointData()->AddArray(idOfCluster);
+  persistenceDiagram->GetPointData()->AddArray(persistenceScalarsPoint);
+  persistenceDiagram->GetPointData()->AddArray(vertexSField);
+
+  return persistenceDiagram;
+}
+
+/*
+vtkSmartPointer<vtkUnstructuredGrid>
+  ttkPersistenceTimeWarpClustering::createMatchings() {
+  this->printMsg("Creating vtk matchings", debug::Priority::VERBOSE);
+  vtkNew<vtkPoints> matchingPoints{};
+
+  vtkNew<vtkUnstructuredGrid> matchingMesh{};
+
+  vtkNew<vtkIntArray> idOfDiagramMatchingPoint{};
+  idOfDiagramMatchingPoint->SetName("DiagramID");
+
+  vtkNew<vtkIntArray> idOfPoint{};
+  idOfPoint->SetName("PointID");
+
+  vtkNew<vtkIntArray> idOfDiagramMatching{};
+  idOfDiagramMatching->SetName("DiagramID");
+
+  vtkNew<vtkIntArray> idOfCluster{};
+  idOfCluster->SetName("ClusterID");
+
+  vtkNew<vtkDoubleArray> cost{};
+  cost->SetName("Cost");
+
+  vtkNew<vtkIntArray> pairType{};
+  pairType->SetName("PairType");
+
+  vtkNew<vtkIntArray> matchingCount{};
+  matchingCount->SetName("MatchNumber");
+
+  std::vector<int> cluster_size;
+  std::vector<int> idxInCluster(intermediateDiagramsCurves_.size());
+
+  std::vector<int> matchings_count(final_centroid_[0].size(), 0);
+  std::vector<int> count_to_good;
+
+  for(unsigned int j = 0; j < intermediateDiagramsCurves_.size(); ++j) {
+    idxInCluster[j] = 0;
+  }
+  // RE-Invert clusters
+  if(DisplayMethod == 1 && Spacing > 0) {
+    for(unsigned int j = 0; j < intermediateDiagramsCurves_.size(); ++j) {
+      unsigned int c = inv_clustering_[j];
+      if(c + 1 > cluster_size.size()) {
+        cluster_size.resize(c + 1);
+        cluster_size[c] = 1;
+        idxInCluster[j] = 0;
+      } else {
+        cluster_size[c]++;
+        idxInCluster[j] = cluster_size[c] - 1;
+      }
+    }
+  }
+  int count = 0;
+  for(unsigned int j = 0; j < intermediateDiagramsCurves_.size(); ++j) {
+    int c = inv_clustering_[j];
+    const auto &diagram = intermediateDiagramsCurves_[j];
+    std::vector<matchingType> matchings_j
+      = all_matchings_[inv_clustering_[j]][j];
+    for(unsigned int i = 0; i < matchings_j.size(); ++i) {
+
+      vtkIdType ids[2];
+      ids[0] = 2 * count;
+      ids[1] = 2 * count + 1;
+      matchingType m = matchings_j[i];
+      const size_t bidder_id = std::get<0>(m);
+      const size_t good_id = std::get<1>(m);
+
+      // avoid out-of-bound accesses
+      if(good_id >= matchings_count.size() || bidder_id >= diagram.size()) {
+        continue;
+      }
+
+      if(NumberOfClusters == 1) {
+        matchings_count[good_id] += 1;
+        count_to_good.push_back(good_id);
+      }
+
+      diagramType t1 = final_centroid_[c][good_id];
+      double x1 = std::get<6>(t1);
+      double y1 = std::get<10>(t1);
+      double z1 = 0;
+
+      diagramType t2 = diagram[bidder_id];
+      double x2 = std::get<6>(t2);
+      double y2 = std::get<10>(t2);
+      double z2 = 0; // Change 1 to j if you want to isolate the diagrams
+
+      if(DisplayMethod == 1 && Spacing > 0) {
+        double angle
+          = 2 * 3.1415926 * (double)(idxInCluster[j]) / cluster_size[c];
+        x1 += (abs(Spacing) + .2) * 3 * max_dimension_total_ * c;
+        x2 += (abs(Spacing) + .2) * 3 * max_dimension_total_ * c
+              + Spacing * max_dimension_total_ * cos(angle);
+        y2 += Spacing * max_dimension_total_ * sin(angle);
+      } else if(DisplayMethod == 2) {
+        z2 = Spacing;
+        if(intermediateDiagramsCurves_.size() == 2 and j == 0) {
+          z2 = -Spacing;
+        }
+      }
+
+      matchingPoints->InsertNextPoint(x1, y1, z1);
+      matchingPoints->InsertNextPoint(x2, y2, z2);
+      matchingMesh->InsertNextCell(VTK_LINE, 2, ids);
+      idOfDiagramMatching->InsertTuple1(count, j);
+      idOfCluster->InsertTuple1(count, inv_clustering_[j]);
+      cost->InsertTuple1(count, std::get<2>(m));
+      idOfDiagramMatchingPoint->InsertTuple1(2 * count, j);
+      idOfDiagramMatchingPoint->InsertTuple1(2 * count + 1, j);
+      idOfPoint->InsertTuple1(2 * count, good_id);
+      idOfPoint->InsertTuple1(2 * count + 1, bidder_id);
+
+      const ttk::SimplexId type = std::get<5>(t2);
+      switch(type) {
+        case 0:
+          pairType->InsertTuple1(count, 0);
+          break;
+
+        case 1:
+          pairType->InsertTuple1(count, 1);
+          break;
+
+        case 2:
+          pairType->InsertTuple1(count, 2);
+          break;
+        default:
+          pairType->InsertTuple1(count, 0);
+      }
+      count++;
+    }
+  }
+
+  if(NumberOfClusters == 1 and intermediateDiagramsCurves_.size() == 2) {
+    for(int i = 0; i < count; i++) {
+      matchingCount->InsertTuple1(i, matchings_count[count_to_good[i]]);
+    }
+  }
+
+  matchingMesh->SetPoints(matchingPoints);
+  matchingMesh->GetPointData()->AddArray(idOfDiagramMatchingPoint);
+  matchingMesh->GetPointData()->AddArray(idOfPoint);
+  matchingMesh->GetCellData()->AddArray(idOfDiagramMatching);
+  matchingMesh->GetCellData()->AddArray(idOfCluster);
+  matchingMesh->GetCellData()->AddArray(pairType);
+  matchingMesh->GetCellData()->AddArray(cost);
+  if(NumberOfClusters == 1 and intermediateDiagramsCurves_.size() == 2) {
+    matchingMesh->GetCellData()->AddArray(matchingCount);
+  }
+
+  return matchingMesh;
+}
+// */
