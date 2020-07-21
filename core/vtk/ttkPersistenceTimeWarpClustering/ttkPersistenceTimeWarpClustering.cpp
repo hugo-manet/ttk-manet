@@ -66,10 +66,6 @@ int ttkPersistenceTimeWarpClustering::RequestData(
 
   // Sanity check
   for(const auto &curveGrid : inputDiagramGrids) {
-    if(nDiagOfCurve[0] != curveGrid.size()) {
-      this->printErr("Input curves aren't all the same size. Fatal for now");
-      return 0;
-    }
     for(const auto &vtu : curveGrid)
       if(vtu == nullptr) {
         this->printErr("Input diagrams are not all vtkUnstructuredGrid");
@@ -103,8 +99,8 @@ int ttkPersistenceTimeWarpClustering::RequestData(
     outputVector->GetInformationObject(0)->Get(vtkDataObject::DATA_OBJECT()));
   auto outputBarycenterCurves = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(1)->Get(vtkDataObject::DATA_OBJECT()));
-  auto outputMatching = vtkUnstructuredGrid::SafeDownCast(
-    outputVector->GetInformationObject(2)->Get(vtkDataObject::DATA_OBJECT()));
+  // auto outputMatching = vtkUnstructuredGrid::SafeDownCast(
+  //  outputVector->GetInformationObject(2)->Get(vtkDataObject::DATA_OBJECT()));
 
   // outputMatching->ShallowCopy(createMatchings());
   outputInitialDiagrams->ShallowCopy(createOutputClusteredDiagrams());
