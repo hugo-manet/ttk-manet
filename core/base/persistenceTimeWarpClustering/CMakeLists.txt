@@ -6,6 +6,7 @@ ttk_add_base_library(persistenceTimeWarpClustering
   DEPENDS
     persistenceDiagramClustering
     persistenceDiagramDistanceMatrix
+    dynamicTimeWarp
     common
     auction
     persistenceDiagram
