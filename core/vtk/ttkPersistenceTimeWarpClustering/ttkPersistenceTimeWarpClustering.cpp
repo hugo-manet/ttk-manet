@@ -10,7 +10,7 @@ vtkStandardNewMacro(ttkPersistenceTimeWarpClustering)
 
   ttkPersistenceTimeWarpClustering::ttkPersistenceTimeWarpClustering() {
   SetNumberOfInputPorts(1);
-  SetNumberOfOutputPorts(3);
+  SetNumberOfOutputPorts(4);
 }
 
 int ttkPersistenceTimeWarpClustering::FillInputPortInformation(
@@ -25,7 +25,7 @@ int ttkPersistenceTimeWarpClustering::FillInputPortInformation(
 
 int ttkPersistenceTimeWarpClustering::FillOutputPortInformation(
   int port, vtkInformation *info) {
-  if(port == 0 || port == 1 || port == 2)
+  if(port == 0 || port == 1 || port == 2 || port == 3)
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkUnstructuredGrid");
   else
     return 0;
@@ -91,20 +91,24 @@ int ttkPersistenceTimeWarpClustering::RequestData(
   inv_clustering_.assign(nCurves, 0); // everybody in one cluster
 
   all_matchings_.clear();
-  this->executeTimeWarp(
-    intermediateDiagramsCurves_, final_centroid_[0], all_matchings_);
+  time_warp_.clear();
+  this->executeTimeWarp(intermediateDiagramsCurves_, final_centroid_[0],
+                        all_matchings_, time_warp_);
 
   // Set outputs
   auto outputInitialDiagrams = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(0)->Get(vtkDataObject::DATA_OBJECT()));
   auto outputBarycenterCurves = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(1)->Get(vtkDataObject::DATA_OBJECT()));
-  // auto outputMatching = vtkUnstructuredGrid::SafeDownCast(
-  //  outputVector->GetInformationObject(2)->Get(vtkDataObject::DATA_OBJECT()));
+  auto outputMatching = vtkUnstructuredGrid::SafeDownCast(
+    outputVector->GetInformationObject(2)->Get(vtkDataObject::DATA_OBJECT()));
+  auto outputTimeWarp = vtkUnstructuredGrid::SafeDownCast(
+    outputVector->GetInformationObject(3)->Get(vtkDataObject::DATA_OBJECT()));
 
   // outputMatching->ShallowCopy(createMatchings());
   outputInitialDiagrams->ShallowCopy(createOutputClusteredDiagrams());
   outputBarycenterCurves->ShallowCopy(createOutputCentroids());
+  outputTimeWarp->ShallowCopy(createOutputTimeWarp());
 
   return 1;
 }
@@ -285,13 +289,13 @@ vtkSmartPointer<vtkUnstructuredGrid>
   int count = 0;
   for(int jCentroid = 0; jCentroid < final_centroid_.size(); ++jCentroid)
     for(int kDiag = 0; kDiag < final_centroid_[jCentroid].size(); ++kDiag) {
-      const std::vector<diagramType> &diagram
+      const std::vector<DiagramTuple> &diagram
         = final_centroid_[jCentroid][kDiag];
 
       // First, add diagram points to the global input diagram
       for(unsigned int i = 0; i < diagram.size(); ++i) {
         vtkIdType ids[2];
-        const diagramType &t = diagram[i];
+        const DiagramTuple &t = diagram[i];
         double x1 = std::get<6>(t);
         double y1 = x1;
         if(DisplayMethod == 1 && Spacing != 0) {
@@ -474,14 +478,14 @@ vtkSmartPointer<vtkUnstructuredGrid>
       ++jCurve)
     for(unsigned int kDiag = 0;
         kDiag < intermediateDiagramsCurves_[jCurve].size(); ++kDiag) {
-      const std::vector<diagramType> &diagram
+      const std::vector<DiagramTuple> &diagram
         = intermediateDiagramsCurves_[jCurve][kDiag];
 
       unsigned int c = inv_clustering_[jCurve];
       // First, add diagram points to the global input diagram
       for(unsigned int i = 0; i < diagram.size(); ++i) {
         vtkIdType ids[2];
-        const diagramType t = diagram[i];
+        const DiagramTuple t = diagram[i];
         double x1 = std::get<6>(t);
         double y1 = x1;
         double z1 = kDiag * max_dimension_total_;
@@ -695,12 +699,12 @@ vtkSmartPointer<vtkUnstructuredGrid>
         count_to_good.push_back(good_id);
       }
 
-      diagramType t1 = final_centroid_[c][good_id];
+      DiagramTuple t1 = final_centroid_[c][good_id];
       double x1 = std::get<6>(t1);
       double y1 = std::get<10>(t1);
       double z1 = 0;
 
-      diagramType t2 = diagram[bidder_id];
+      DiagramTuple t2 = diagram[bidder_id];
       double x2 = std::get<6>(t2);
       double y2 = std::get<10>(t2);
       double z2 = 0; // Change 1 to j if you want to isolate the diagrams
@@ -770,3 +774,111 @@ vtkSmartPointer<vtkUnstructuredGrid>
   return matchingMesh;
 }
 // */
+
+vtkSmartPointer<vtkUnstructuredGrid>
+  ttkPersistenceTimeWarpClustering::createOutputTimeWarp() {
+  this->printMsg("Creating vtk time warp", debug::Priority::VERBOSE);
+  vtkNew<vtkPoints> points{};
+
+  vtkNew<vtkUnstructuredGrid> timeWarpResult{};
+
+  vtkNew<vtkIntArray> weightCells{};
+  weightCells->SetName("Weight");
+
+  vtkNew<vtkIntArray> idOfDiagramPoint{};
+  idOfDiagramPoint->SetName("DiagramID");
+
+  vtkNew<vtkIntArray> idOfCurvePoint{};
+  idOfDiagramPoint->SetName("CurveID");
+
+  vtkNew<vtkIntArray> idOfClusterPoint{};
+  idOfClusterPoint->SetName("ClusterID");
+
+  std::vector<int> cluster_size;
+  std::vector<int> idxInCluster(intermediateDiagramsCurves_.size());
+  for(size_t jCurve = 0; jCurve < intermediateDiagramsCurves_.size();
+      ++jCurve) {
+    idxInCluster[jCurve] = 0;
+  }
+
+  if(Spacing > 0) {
+    for(size_t jCurve = 0; jCurve < intermediateDiagramsCurves_.size();
+        ++jCurve) {
+      size_t c = inv_clustering_[jCurve];
+      if(c + 1 > cluster_size.size()) {
+        cluster_size.resize(c + 1);
+        cluster_size[c] = 1;
+        idxInCluster[jCurve] = 0;
+      } else {
+        cluster_size[c]++;
+        idxInCluster[jCurve] = cluster_size[c] - 1;
+      }
+    }
+  }
+
+  int count = 0;
+  // Compute curve point indexes and build them
+  std::vector<size_t> startOfCurve = {0};
+  for(size_t jCurve = 0; jCurve < intermediateDiagramsCurves_.size();
+      ++jCurve) {
+    for(size_t kDiag = 0; kDiag < intermediateDiagramsCurves_[jCurve].size();
+        ++kDiag) {
+      double x = 0;
+      double y = 0;
+      if(DisplayMethod == 1 && Spacing > 0) {
+        double angle = 2 * 3.1415926 * (double)(idxInCluster[jCurve])
+                       / cluster_size[inv_clustering_[jCurve]];
+        x += (abs(Spacing) + .2) * 3 * max_dimension_total_
+               * inv_clustering_[jCurve]
+             + Spacing * max_dimension_total_ * cos(angle);
+        y += Spacing * max_dimension_total_ * sin(angle);
+      }
+      double z = kDiag * max_dimension_total_;
+      points->InsertNextPoint(x, y, z);
+      idOfDiagramPoint->InsertNextValue(count++);
+      idOfCurvePoint->InsertNextValue(jCurve);
+      idOfClusterPoint->InsertNextValue(inv_clustering_[jCurve]);
+    }
+    startOfCurve.push_back(startOfCurve.back()
+                           + intermediateDiagramsCurves_[jCurve].size());
+  }
+  // Last isn't a curve, it's a centroid
+  // Compute centroid points indexes and build them
+  std::vector<size_t> startOfCentroid = {startOfCurve.back()};
+  startOfCurve.pop_back();
+  for(size_t iCentroid = 0; iCentroid < final_centroid_.size(); ++iCentroid) {
+    for(size_t kDiag = 0; kDiag < final_centroid_[iCentroid].size(); ++kDiag) {
+      double x = 0;
+      double y = 0;
+      if(DisplayMethod == 1 && Spacing > 0)
+        x += (abs(Spacing) + .2) * 3 * max_dimension_total_ * iCentroid;
+      double z = kDiag * max_dimension_total_;
+      points->InsertNextPoint(x, y, z);
+      idOfDiagramPoint->InsertNextValue(count++);
+      idOfCurvePoint->InsertNextValue(intermediateDiagramsCurves_.size()
+                                      + iCentroid);
+      idOfClusterPoint->InsertNextValue(iCentroid);
+    }
+    startOfCentroid.push_back(startOfCentroid.back()
+                              + final_centroid_[iCentroid].size());
+  }
+  startOfCentroid.pop_back();
+
+  for(size_t iCentroid = 0; iCentroid < time_warp_.size(); ++iCentroid)
+    for(size_t jCurve = 0; jCurve < time_warp_[iCentroid].size(); ++jCurve)
+      for(auto &[kCentroidID, lCurveID, weight] :
+          time_warp_[iCentroid][jCurve]) {
+        vtkIdType ids[2] = {kCentroidID + startOfCentroid[iCentroid],
+                            lCurveID + startOfCurve[jCurve]};
+        timeWarpResult->InsertNextCell(VTK_LINE, 2, ids);
+        weightCells->InsertNextValue(weight);
+      }
+
+  timeWarpResult->SetPoints(points);
+  timeWarpResult->GetPointData()->AddArray(idOfDiagramPoint);
+  timeWarpResult->GetPointData()->AddArray(idOfCurvePoint);
+  timeWarpResult->GetPointData()->AddArray(idOfClusterPoint);
+  timeWarpResult->GetCellData()->AddArray(weightCells);
+
+  return timeWarpResult;
+}

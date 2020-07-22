@@ -47,6 +47,7 @@ using namespace ttk;
 namespace ttk {
 
   using DiagramCurve = std::vector<ttk::Diagram>;
+  using TimeWarpTuple = std::tuple<size_t, size_t, double>;
   class PersistenceTimeWarpClustering : public PersistenceDiagramClustering {
 
   public:
@@ -60,19 +61,21 @@ namespace ttk {
     int executeTimeWarp(
       std::vector<ttk::DiagramCurve> &intermediateDiagramCurves,
       ttk::DiagramCurve &final_centroid,
-      std::vector<std::vector<std::vector<matchingTuple>>> &all_matchings);
+      std::vector<std::vector<std::vector<matchingTuple>>> &all_matchings,
+      std::vector<std::vector<std::vector<TimeWarpTuple>>> &time_warp);
   };
 
   template <class dataType>
   int PersistenceTimeWarpClustering::executeTimeWarp(
     std::vector<ttk::DiagramCurve> &intermediateDiagramCurves,
     ttk::DiagramCurve &final_centroid,
-    std::vector<std::vector<std::vector<matchingTuple>>> &all_matchings) {
+    std::vector<std::vector<std::vector<matchingTuple>>> &all_matchings,
+    std::vector<std::vector<std::vector<TimeWarpTuple>>> &time_warp) {
 
     Timer tm;
 
     const size_t nCurves = intermediateDiagramCurves.size();
-
+    std::vector<std::vector<std::vector<size_t>>> matchedDiagrams;
     if(false) {
       this->TimeLimit /= final_centroid.size();
       // No DTW, juste euclidian barycenter
@@ -105,8 +108,7 @@ namespace ttk {
       size_t nbIterMax = 3;
       // list of all matched diagrams for centroid diagram
       for(size_t iIter = 0; iIter < nbIterMax; ++iIter) {
-        std::vector<std::vector<std::vector<size_t>>> matchedDiagrams(
-          final_centroid.size());
+        matchedDiagrams.assign(final_centroid.size(), {});
         for(auto &matchesOfDiag : matchedDiagrams)
           matchesOfDiag.assign(nCurves, {});
 
@@ -175,7 +177,15 @@ namespace ttk {
       }
     }
 
-    printMsg("Complete", 1, tm.getElapsedTime(), threadNumber_);
+    printMsg("Completed all iterations", 1, tm.getElapsedTime(), threadNumber_);
+    time_warp.emplace_back(nCurves); // Only one cluster, all curves in
+    for(size_t iCentroid = 0; iCentroid < matchedDiagrams.size(); ++iCentroid) {
+      for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
+        for(auto kOther : matchedDiagrams[iCentroid][jCurve]) {
+          time_warp[0][jCurve].emplace_back(iCentroid, kOther, 0.);
+        }
+      }
+    }
     return 1;
   }
 } // namespace ttk

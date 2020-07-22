@@ -252,7 +252,7 @@ public:
 protected:
   ttkPersistenceTimeWarpClustering();
 
-  using diagramType = ttk::DiagramTuple;
+  // using diagramType = ttk::DiagramTuple;
 
   using matchingType = std::tuple<ttk::SimplexId, ttk::SimplexId, double>;
 
@@ -265,6 +265,7 @@ protected:
   vtkSmartPointer<vtkUnstructuredGrid> createMatchings();
   vtkSmartPointer<vtkUnstructuredGrid> createOutputClusteredDiagrams();
   vtkSmartPointer<vtkUnstructuredGrid> createOutputCentroids();
+  vtkSmartPointer<vtkUnstructuredGrid> createOutputTimeWarp();
 
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
@@ -273,6 +274,7 @@ protected:
 private:
   std::vector<ttk::DiagramCurve> intermediateDiagramsCurves_{};
   std::vector<std::vector<std::vector<matchingType>>> all_matchings_{};
+  std::vector<std::vector<std::vector<TimeWarpTuple>>> time_warp_{};
   std::vector<ttk::DiagramCurve> final_centroid_{};
   std::vector<int> inv_clustering_{};
 
