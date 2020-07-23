@@ -76,33 +76,7 @@ namespace ttk {
 
     const size_t nCurves = intermediateDiagramCurves.size();
     std::vector<std::vector<std::vector<size_t>>> matchedDiagrams;
-    if(false) {
-      this->TimeLimit /= final_centroid.size();
-      // No DTW, juste euclidian barycenter
-      for(int iDiag = 0; iDiag < final_centroid.size(); ++iDiag) {
-        std::vector<Diagram> slice;
-        slice.reserve(numberOfInputs_);
-        for(auto &curve : intermediateDiagramCurves) {
-          slice.emplace_back(curve[iDiag]);
-        }
-        numberOfInputs_ = slice.size();
-        {
-          printMsg("Clustering " + std::to_string(numberOfInputs_)
-                   + " diagrams in " + std::to_string(NumberOfClusters)
-                   + " cluster(s).");
-        }
-
-        std::vector<std::vector<std::vector<matchingTuple>>> temp_matchings;
-        std::vector<Diagram> solo_centroid(1);
-        this->execute<dataType>(slice, solo_centroid, temp_matchings);
-        final_centroid[iDiag] = std::move(solo_centroid[0]);
-        solo_centroid.clear();
-        all_matchings.reserve(all_matchings.size() + temp_matchings.size());
-        std::move(std::begin(temp_matchings), std::end(temp_matchings),
-                  std::back_inserter(all_matchings));
-        temp_matchings.clear();
-      }
-    } else {
+    {
       final_centroid = intermediateDiagramCurves[0];
       // TODO param
       size_t nbIterMax = 3;
