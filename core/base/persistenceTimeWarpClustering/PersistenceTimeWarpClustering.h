@@ -86,6 +86,9 @@ namespace ttk {
         for(auto &matchesOfDiag : matchedDiagrams)
           matchesOfDiag.assign(nCurves, {});
 
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp parallel for num_threads(threadNumber_)
+#endif // TTK_ENABLE_OPENMP
         for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
           std::vector<Diagram> diagramColl = final_centroid;
           diagramColl.insert(diagramColl.end(),
@@ -122,6 +125,9 @@ namespace ttk {
             matchedDiagrams[iCentroid][jCurve].push_back(kOther);
           }
         }
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp parallel for num_threads(threadNumber_)
+#endif // TTK_ENABLE_OPENMP
         for(int iDiag = 0; iDiag < final_centroid.size(); ++iDiag) {
           std::vector<Diagram> slice;
           for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
