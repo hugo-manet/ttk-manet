@@ -134,9 +134,8 @@ namespace ttk {
             for(auto &kOther : matchedDiagrams[iDiag][jCurve])
               slice.emplace_back(intermediateDiagramCurves[jCurve][kOther]);
           }
-          numberOfInputs_ = slice.size();
           {
-            printMsg("Clustering " + std::to_string(numberOfInputs_)
+            printMsg("Clustering " + std::to_string(slice.size())
                      + " diagrams in " + std::to_string(NumberOfClusters)
                      + " cluster(s).");
           }
