@@ -263,7 +263,7 @@ protected:
   int FillOutputPortInformation(int port, vtkInformation *info) override;
 
   vtkSmartPointer<vtkUnstructuredGrid> createMatchings();
-  vtkSmartPointer<vtkUnstructuredGrid> createOutputClusteredDiagrams();
+  vtkSmartPointer<vtkMultiBlockDataSet> createOutputClusteredDiagrams();
   vtkSmartPointer<vtkMultiBlockDataSet> createOutputCentroids();
   vtkSmartPointer<vtkUnstructuredGrid> createOutputTimeWarp();
 
