@@ -274,6 +274,9 @@ vtkSmartPointer<vtkMultiBlockDataSet>
       vtkNew<vtkUnstructuredGrid> persistenceDiagram{};
       vtkNew<vtkPoints> points{};
 
+      vtkNew<ttkSimplexIdTypeArray> vertexIdentifierScalars{};
+      vertexIdentifierScalars->SetName(ttk::VertexScalarFieldName);
+
       vtkNew<vtkIntArray> nodeType{};
       nodeType->SetName("CriticalType");
 
@@ -281,7 +284,7 @@ vtkSmartPointer<vtkMultiBlockDataSet>
       persistenceScalars->SetName("Persistence");
 
       vtkNew<vtkIntArray> idOfPair{};
-      idOfPair->SetName("PairID");
+      idOfPair->SetName("PairIdentifier");
 
       vtkNew<vtkDoubleArray> persistenceScalarsPoint{};
       persistenceScalarsPoint->SetName("Persistence");
@@ -295,6 +298,7 @@ vtkSmartPointer<vtkMultiBlockDataSet>
       vtkNew<vtkFloatArray> coordsScalars{};
       coordsScalars->SetNumberOfComponents(3);
       coordsScalars->SetName("Coordinates");
+
       const std::vector<DiagramTuple> &diagram
         = final_centroid_[jCentroid][kDiag];
 
@@ -327,11 +331,11 @@ vtkSmartPointer<vtkMultiBlockDataSet>
         coords2[2] = std::get<13>(t);
 
         idOfPair->InsertTuple1(count, i);
-
         points->InsertNextPoint(x1, y1, z1);
         coordsScalars->InsertTuple3(
           2 * count, coords1[0], coords1[1], coords1[2]);
         idOfDiagramPoint->InsertTuple1(2 * count, jCentroid);
+        vertexIdentifierScalars->InsertTuple1(2 * count, 2 * count);
         const ttk::CriticalType n1Type = std::get<1>(t);
         switch(n1Type) {
           case BLocalMin:
@@ -362,6 +366,7 @@ vtkSmartPointer<vtkMultiBlockDataSet>
         coordsScalars->InsertTuple3(
           2 * count + 1, coords2[0], coords2[1], coords2[2]);
         idOfDiagramPoint->InsertTuple1(2 * count + 1, jCentroid);
+        vertexIdentifierScalars->InsertTuple1(2 * count + 1, 2 * count + 1);
         const ttk::CriticalType n2Type = std::get<3>(t);
         switch(n2Type) {
           case BLocalMin:
@@ -409,6 +414,13 @@ vtkSmartPointer<vtkMultiBlockDataSet>
         count++;
       }
 
+      // Add diag
+      vtkIdType ids[2] = {0, 2 * count - 2};
+      persistenceDiagram->InsertNextCell(VTK_LINE, 2, ids);
+      persistenceScalars->InsertTuple1(count, -1);
+      pairType->InsertTuple1(count, -1);
+      idOfPair->InsertTuple1(count, count);
+
       persistenceDiagram->SetPoints(points);
       persistenceDiagram->GetCellData()->AddArray(persistenceScalars);
       persistenceDiagram->GetCellData()->AddArray(pairType);
@@ -417,6 +429,7 @@ vtkSmartPointer<vtkMultiBlockDataSet>
       persistenceDiagram->GetPointData()->AddArray(coordsScalars);
       persistenceDiagram->GetPointData()->AddArray(idOfDiagramPoint);
       persistenceDiagram->GetPointData()->AddArray(persistenceScalarsPoint);
+      persistenceDiagram->GetPointData()->AddArray(vertexIdentifierScalars);
 
       allCurve->SetBlock(kDiag, persistenceDiagram);
     }
