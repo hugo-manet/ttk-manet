@@ -264,7 +264,7 @@ protected:
 
   vtkSmartPointer<vtkUnstructuredGrid> createMatchings();
   vtkSmartPointer<vtkUnstructuredGrid> createOutputClusteredDiagrams();
-  vtkSmartPointer<vtkUnstructuredGrid> createOutputCentroids();
+  vtkSmartPointer<vtkMultiBlockDataSet> createOutputCentroids();
   vtkSmartPointer<vtkUnstructuredGrid> createOutputTimeWarp();
 
   int RequestData(vtkInformation *request,

@@ -25,8 +25,10 @@ int ttkPersistenceTimeWarpClustering::FillInputPortInformation(
 
 int ttkPersistenceTimeWarpClustering::FillOutputPortInformation(
   int port, vtkInformation *info) {
-  if(port == 0 || port == 1 || port == 2 || port == 3)
+  if(port == 0 || port == 2 || port == 3)
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkUnstructuredGrid");
+  else if(port == 1)
+    info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkMultiBlockDataSet");
   else
     return 0;
   return 1;
@@ -98,7 +100,7 @@ int ttkPersistenceTimeWarpClustering::RequestData(
   // Set outputs
   auto outputInitialDiagrams = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(0)->Get(vtkDataObject::DATA_OBJECT()));
-  auto outputBarycenterCurves = vtkUnstructuredGrid::SafeDownCast(
+  auto outputBarycenterCurves = vtkMultiBlockDataSet::SafeDownCast(
     outputVector->GetInformationObject(1)->Get(vtkDataObject::DATA_OBJECT()));
   auto outputMatching = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(2)->Get(vtkDataObject::DATA_OBJECT()));
@@ -257,38 +259,42 @@ double ttkPersistenceTimeWarpClustering::getPersistenceDiagram(
   return max_dimension;
 }
 
-vtkSmartPointer<vtkUnstructuredGrid>
+vtkSmartPointer<vtkMultiBlockDataSet>
   ttkPersistenceTimeWarpClustering::createOutputCentroids() {
   this->printMsg("Creating vtk diagrams", debug::Priority::VERBOSE);
-  vtkNew<vtkPoints> points{};
 
-  vtkNew<vtkUnstructuredGrid> persistenceDiagram{};
+  vtkNew<vtkMultiBlockDataSet> allCurve{};
 
-  vtkNew<vtkIntArray> nodeType{};
-  nodeType->SetName("CriticalType");
+  // TODO change when adding different clusters
+  allCurve->SetNumberOfBlocks(final_centroid_[0].size());
 
-  vtkNew<vtkDoubleArray> persistenceScalars{};
-  persistenceScalars->SetName("Persistence");
-
-  vtkNew<vtkIntArray> idOfPair{};
-  idOfPair->SetName("PairID");
-
-  vtkNew<vtkDoubleArray> persistenceScalarsPoint{};
-  persistenceScalarsPoint->SetName("Persistence");
-
-  vtkNew<vtkIntArray> idOfDiagramPoint{};
-  idOfDiagramPoint->SetName("ClusterID");
-
-  vtkNew<vtkIntArray> pairType{};
-  pairType->SetName("PairType");
-
-  vtkNew<vtkFloatArray> coordsScalars{};
-  coordsScalars->SetNumberOfComponents(3);
-  coordsScalars->SetName("Coordinates");
-
-  int count = 0;
-  for(int jCentroid = 0; jCentroid < final_centroid_.size(); ++jCentroid)
+  for(int jCentroid = 0; jCentroid < final_centroid_.size(); ++jCentroid) {
     for(int kDiag = 0; kDiag < final_centroid_[jCentroid].size(); ++kDiag) {
+      int count = 0;
+      vtkNew<vtkUnstructuredGrid> persistenceDiagram{};
+      vtkNew<vtkPoints> points{};
+
+      vtkNew<vtkIntArray> nodeType{};
+      nodeType->SetName("CriticalType");
+
+      vtkNew<vtkDoubleArray> persistenceScalars{};
+      persistenceScalars->SetName("Persistence");
+
+      vtkNew<vtkIntArray> idOfPair{};
+      idOfPair->SetName("PairID");
+
+      vtkNew<vtkDoubleArray> persistenceScalarsPoint{};
+      persistenceScalarsPoint->SetName("Persistence");
+
+      vtkNew<vtkIntArray> idOfDiagramPoint{};
+      idOfDiagramPoint->SetName("ClusterID");
+
+      vtkNew<vtkIntArray> pairType{};
+      pairType->SetName("PairType");
+
+      vtkNew<vtkFloatArray> coordsScalars{};
+      coordsScalars->SetNumberOfComponents(3);
+      coordsScalars->SetName("Coordinates");
       const std::vector<DiagramTuple> &diagram
         = final_centroid_[jCentroid][kDiag];
 
@@ -402,18 +408,20 @@ vtkSmartPointer<vtkUnstructuredGrid>
         }
         count++;
       }
+
+      persistenceDiagram->SetPoints(points);
+      persistenceDiagram->GetCellData()->AddArray(persistenceScalars);
+      persistenceDiagram->GetCellData()->AddArray(pairType);
+      persistenceDiagram->GetCellData()->AddArray(idOfPair);
+      persistenceDiagram->GetPointData()->AddArray(nodeType);
+      persistenceDiagram->GetPointData()->AddArray(coordsScalars);
+      persistenceDiagram->GetPointData()->AddArray(idOfDiagramPoint);
+      persistenceDiagram->GetPointData()->AddArray(persistenceScalarsPoint);
+
+      allCurve->SetBlock(kDiag, persistenceDiagram);
     }
-
-  persistenceDiagram->SetPoints(points);
-  persistenceDiagram->GetCellData()->AddArray(persistenceScalars);
-  persistenceDiagram->GetCellData()->AddArray(pairType);
-  persistenceDiagram->GetCellData()->AddArray(idOfPair);
-  persistenceDiagram->GetPointData()->AddArray(nodeType);
-  persistenceDiagram->GetPointData()->AddArray(coordsScalars);
-  persistenceDiagram->GetPointData()->AddArray(idOfDiagramPoint);
-  persistenceDiagram->GetPointData()->AddArray(persistenceScalarsPoint);
-
-  return persistenceDiagram;
+  }
+  return allCurve;
 }
 
 vtkSmartPointer<vtkUnstructuredGrid>
