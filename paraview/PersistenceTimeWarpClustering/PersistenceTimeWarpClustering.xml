@@ -360,6 +360,29 @@ between matched critical points.
         </Documentation>
       </DoubleVectorProperty>
 
+      <IntVectorProperty
+        name="NumberOfIterations"
+        label="Number of Lloyd iterations"
+        command="SetNumberOfIterations"
+        number_of_elements="1"
+        default_values="3">
+        <IntRangeDomain name="nbIter" min="1" max="20"/>
+        <Documentation>
+          Number of times the centroid(s) will be rematched to the curves and updated.
+        </Documentation>
+      </IntVectorProperty>
+      <DoubleVectorProperty name="DeletionCost"
+        label="DeletionCost"
+        command="SetDeletionCost"
+        number_of_elements="1"
+        default_values="1">
+        <Documentation>
+          Cost for matching two consecutive diagrams
+          to the same diagram in the other curve.
+        </Documentation>
+        <DoubleRangeDomain name="range" />
+      </DoubleVectorProperty>
+
       ${DEBUG_WIDGETS}
 
       <OutputPort name="Clustered Diagrams" index="0" id="port0" />

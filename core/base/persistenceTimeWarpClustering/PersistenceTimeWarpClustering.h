@@ -49,6 +49,9 @@ namespace ttk {
   using DiagramCurve = std::vector<ttk::Diagram>;
   using TimeWarpTuple = std::tuple<size_t, size_t, double>;
   class PersistenceTimeWarpClustering : public PersistenceDiagramClustering {
+  protected:
+    int NumberOfIterations{3};
+    double DeletionCost{1.};
 
   public:
     PersistenceTimeWarpClustering() {
@@ -78,10 +81,8 @@ namespace ttk {
     std::vector<std::vector<std::vector<size_t>>> matchedDiagrams;
     {
       final_centroid = intermediateDiagramCurves[0];
-      // TODO param
-      size_t nbIterMax = 3;
       // list of all matched diagrams for centroid diagram
-      for(size_t iIter = 0; iIter < nbIterMax; ++iIter) {
+      for(int iIter = 0; iIter < NumberOfIterations; ++iIter) {
         matchedDiagrams.assign(final_centroid.size(), {});
         for(auto &matchesOfDiag : matchedDiagrams)
           matchesOfDiag.assign(nCurves, {});
@@ -117,8 +118,8 @@ namespace ttk {
               realDistMatrix(i, j) = distMatrix[i][j];
 
           // TODO parametrize from class param. We should also inherit DTW
-          auto path
-            = DynamicTimeWarp().computeWarpingPath(realDistMatrix, 1, false);
+          auto path = DynamicTimeWarp().computeWarpingPath(
+            realDistMatrix, DeletionCost, false);
 
           matchedDiagrams[0][jCurve].push_back(0);
           for(const auto &[dir, iCentroid, kOther, w] : path) {
@@ -128,10 +129,10 @@ namespace ttk {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
-        for(int iDiag = 0; iDiag < final_centroid.size(); ++iDiag) {
+        for(size_t iDiag = 0; iDiag < final_centroid.size(); ++iDiag) {
           std::vector<Diagram> slice;
           for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
-            for(auto &kOther : matchedDiagrams[iDiag][jCurve])
+            for(auto kOther : matchedDiagrams[iDiag][jCurve])
               slice.emplace_back(intermediateDiagramCurves[jCurve][kOther]);
           }
           {
@@ -145,13 +146,13 @@ namespace ttk {
           this->execute<dataType>(slice, solo_centroid, temp_matchings);
           final_centroid[iDiag] = std::move(solo_centroid[0]);
           solo_centroid.clear();
-
-          if(iIter >= nbIterMax - 1) {
+/* No need to copy for now, it's just an overhead
+          if(iIter >= NumberOfIterations - 1) {
             all_matchings.reserve(all_matchings.size() + temp_matchings.size());
             std::move(std::begin(temp_matchings), std::end(temp_matchings),
                       std::back_inserter(all_matchings));
             temp_matchings.clear();
-          }
+          } // */
         }
       }
     }

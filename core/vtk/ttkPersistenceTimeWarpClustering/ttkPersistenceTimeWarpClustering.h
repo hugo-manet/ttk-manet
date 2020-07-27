@@ -249,6 +249,12 @@ public:
   }
   vtkGetMacro(Method, double);
 
+  vtkSetMacro(NumberOfIterations, int);
+  vtkGetMacro(NumberOfIterations, int);
+
+  vtkSetMacro(DeletionCost, double);
+  vtkGetMacro(DeletionCost, double);
+
 protected:
   ttkPersistenceTimeWarpClustering();
 

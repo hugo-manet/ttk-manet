@@ -43,7 +43,7 @@ int ttkPersistenceTimeWarpClustering::RequestData(
 
   // Get input data
 
-  auto nCurves = inputVector[0]->GetNumberOfInformationObjects();
+  size_t nCurves = inputVector[0]->GetNumberOfInformationObjects();
   std::vector<vtkMultiBlockDataSet *> blocks(nCurves);
   std::vector<std::vector<vtkUnstructuredGrid *>> inputDiagramGrids(nCurves);
 
