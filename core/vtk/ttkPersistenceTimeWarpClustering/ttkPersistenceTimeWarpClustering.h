@@ -272,6 +272,7 @@ protected:
   vtkSmartPointer<vtkMultiBlockDataSet> createOutputClusteredDiagrams();
   vtkSmartPointer<vtkMultiBlockDataSet> createOutputCentroids();
   vtkSmartPointer<vtkUnstructuredGrid> createOutputTimeWarp();
+  vtkSmartPointer<vtkUnstructuredGrid> createOutputSlicePoints();
 
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
