@@ -10,7 +10,7 @@ vtkStandardNewMacro(ttkPersistenceTimeWarpClustering)
 
   ttkPersistenceTimeWarpClustering::ttkPersistenceTimeWarpClustering() {
   SetNumberOfInputPorts(1);
-  SetNumberOfOutputPorts(4);
+  SetNumberOfOutputPorts(5);
 }
 
 int ttkPersistenceTimeWarpClustering::FillInputPortInformation(
@@ -25,7 +25,7 @@ int ttkPersistenceTimeWarpClustering::FillInputPortInformation(
 
 int ttkPersistenceTimeWarpClustering::FillOutputPortInformation(
   int port, vtkInformation *info) {
-  if(port == 2 || port == 3)
+  if(port == 2 || port == 3 || port == 4)
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkUnstructuredGrid");
   else if(port == 0 || port == 1)
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkMultiBlockDataSet");
@@ -106,11 +106,14 @@ int ttkPersistenceTimeWarpClustering::RequestData(
     outputVector->GetInformationObject(2)->Get(vtkDataObject::DATA_OBJECT()));
   auto outputTimeWarp = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(3)->Get(vtkDataObject::DATA_OBJECT()));
+  auto outputSlicePoints = vtkUnstructuredGrid::SafeDownCast(
+    outputVector->GetInformationObject(4)->Get(vtkDataObject::DATA_OBJECT()));
 
   // outputMatching->ShallowCopy(createMatchings());
   outputInitialDiagrams->ShallowCopy(createOutputClusteredDiagrams());
   outputBarycenterCurves->ShallowCopy(createOutputCentroids());
   outputTimeWarp->ShallowCopy(createOutputTimeWarp());
+  outputSlicePoints->ShallowCopy(createOutputSlicePoints());
 
   return 1;
 }
@@ -746,4 +749,49 @@ vtkSmartPointer<vtkUnstructuredGrid>
   timeWarpResult->GetCellData()->AddArray(weightCells);
 
   return timeWarpResult;
+}
+
+vtkSmartPointer<vtkUnstructuredGrid>
+  ttkPersistenceTimeWarpClustering::createOutputSlicePoints() {
+  this->printMsg("Creating vtk slice points", debug::Priority::VERBOSE);
+  vtkNew<vtkPoints> points{};
+
+  vtkNew<vtkUnstructuredGrid> slicePointsResult{};
+
+  vtkNew<vtkIntArray> idOfDiagramPoint{};
+  idOfDiagramPoint->SetName("SliceID");
+
+  vtkNew<vtkIntArray> idOfClusterPoint{};
+  idOfClusterPoint->SetName("ClusterID");
+
+  std::vector<size_t> offsetForCurve = {0};
+  for(auto &curve : intermediateDiagramsCurves_)
+    offsetForCurve.push_back(offsetForCurve.back() + curve.size());
+
+  for(size_t iCentroid = 0; iCentroid < time_warp_.size(); ++iCentroid) {
+    const size_t nbSlices = final_centroid_[iCentroid].size();
+    std::vector<std::vector<std::tuple<size_t, size_t>>> sliceMembers(nbSlices);
+    for(size_t jCurve = 0; jCurve < time_warp_[iCentroid].size(); ++jCurve)
+      for(auto &[kCentroidID, lCurveID, w] : time_warp_[iCentroid][jCurve])
+        sliceMembers[kCentroidID].push_back({jCurve, lCurveID});
+    for(size_t kSlice = 0; kSlice < nbSlices; ++kSlice) {
+      for(auto &[j1, l1] : sliceMembers[kSlice]) {
+        points->InsertNextPoint(
+          offsetForCurve[j1] + l1, offsetForCurve.back() + kSlice, 0);
+        idOfDiagramPoint->InsertNextValue(kSlice);
+        idOfClusterPoint->InsertNextValue(iCentroid);
+        for(auto &[j2, l2] : sliceMembers[kSlice]) {
+          points->InsertNextPoint(
+            offsetForCurve[j1] + l1, offsetForCurve[j2] + l2, 0);
+          idOfDiagramPoint->InsertNextValue(kSlice);
+          idOfClusterPoint->InsertNextValue(iCentroid);
+        }
+      }
+    }
+  }
+  slicePointsResult->SetPoints(points);
+  slicePointsResult->GetPointData()->AddArray(idOfDiagramPoint);
+  slicePointsResult->GetPointData()->AddArray(idOfClusterPoint);
+
+  return slicePointsResult;
 }
