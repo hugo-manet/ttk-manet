@@ -95,9 +95,8 @@ namespace ttk {
           std::vector<Diagram> diagramColl;
           diagramColl.reserve(final_centroid.size()
                               + intermediateDiagramCurves[jCurve].size());
-          diagramColl.insert(diagramColl.cend(),
-                             intermediateDiagramCurves[jCurve].cbegin(),
-                             intermediateDiagramCurves[jCurve].cend());
+          diagramColl.insert(
+            diagramColl.cend(), final_centroid.cbegin(), final_centroid.cend());
           diagramColl.insert(diagramColl.cend(),
                              intermediateDiagramCurves[jCurve].cbegin(),
                              intermediateDiagramCurves[jCurve].cend());
