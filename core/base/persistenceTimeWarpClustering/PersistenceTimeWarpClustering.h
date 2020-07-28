@@ -88,7 +88,7 @@ namespace ttk {
           matchesOfDiag.assign(nCurves, {});
 
 #ifdef TTK_ENABLE_OPENMP
-#pragma omp parallel for num_threads(threadNumber_)
+#pragma omp parallel for schedule(dynamic) num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
         for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
           Timer timerCurve;
