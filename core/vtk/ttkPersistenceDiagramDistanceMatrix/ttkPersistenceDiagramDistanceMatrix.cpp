@@ -233,7 +233,7 @@ double ttkPersistenceDiagramDistanceMatrix::getPersistenceDiagram(
     }
 
     if(pairIdentifier != -1 && pairIdentifier < pairingsSize) {
-      if(pairIdentifier == 0) {
+      if(pairIdentifier == 0 && false) {
         max_dimension = persistence;
 
         diagram[0] = std::make_tuple(
