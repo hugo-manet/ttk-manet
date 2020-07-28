@@ -62,7 +62,7 @@ namespace ttk {
 
     template <class dataType>
     int executeTimeWarp(
-      std::vector<ttk::DiagramCurve> &intermediateDiagramCurves,
+      const std::vector<ttk::DiagramCurve> &intermediateDiagramCurves,
       ttk::DiagramCurve &final_centroid,
       std::vector<std::vector<std::vector<matchingTuple>>> &all_matchings,
       std::vector<std::vector<std::vector<TimeWarpTuple>>> &time_warp);
@@ -70,7 +70,7 @@ namespace ttk {
 
   template <class dataType>
   int PersistenceTimeWarpClustering::executeTimeWarp(
-    std::vector<ttk::DiagramCurve> &intermediateDiagramCurves,
+    const std::vector<ttk::DiagramCurve> &intermediateDiagramCurves,
     ttk::DiagramCurve &final_centroid,
     std::vector<std::vector<std::vector<matchingTuple>>> &all_matchings,
     std::vector<std::vector<std::vector<TimeWarpTuple>>> &time_warp) {
@@ -91,10 +91,15 @@ namespace ttk {
 #pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
         for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
-          std::vector<Diagram> diagramColl = final_centroid;
-          diagramColl.insert(diagramColl.end(),
-                             intermediateDiagramCurves[jCurve].begin(),
-                             intermediateDiagramCurves[jCurve].end());
+          std::vector<Diagram> diagramColl;
+          diagramColl.reserve(final_centroid.size()
+                              + intermediateDiagramCurves[jCurve].size());
+          diagramColl.insert(diagramColl.cend(),
+                             intermediateDiagramCurves[jCurve].cbegin(),
+                             intermediateDiagramCurves[jCurve].cend());
+          diagramColl.insert(diagramColl.cend(),
+                             intermediateDiagramCurves[jCurve].cbegin(),
+                             intermediateDiagramCurves[jCurve].cend());
           const std::array<size_t, 2> sizes
             = {final_centroid.size(), intermediateDiagramCurves[jCurve].size()};
 
