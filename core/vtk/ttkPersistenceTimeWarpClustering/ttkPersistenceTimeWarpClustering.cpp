@@ -369,7 +369,7 @@ vtkSmartPointer<vtkUnstructuredGrid> createDiagram(const ttk::Diagram &diagram,
         pairType->InsertTuple1(lPair, 2);
         break;
       default:
-        pairType->InsertTuple1(lPair, 0);
+        pairType->InsertTuple1(lPair, 2);
     }
   }
 
