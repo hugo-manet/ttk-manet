@@ -173,11 +173,7 @@ double ttkPersistenceTimeWarpClustering::getPersistenceDiagram(
   }
 #endif // TTK_ENABLE_KAMIKAZE
 
-  if(NumberOfClusters == 1) {
-    diagram.resize(pairingsSize);
-  } else {
-    diagram.resize(pairingsSize + 1);
-  }
+  diagram.resize(pairingsSize);
   int nbNonCompact = 0;
   double max_dimension = 0;
 
@@ -216,24 +212,11 @@ double ttkPersistenceTimeWarpClustering::getPersistenceDiagram(
       if(pairIdentifier == 0) {
         max_dimension = persistence;
 
-        if(NumberOfClusters == 1) {
-          diagram[0] = std::make_tuple(
-            vertexId1, CriticalType::Local_minimum, vertexId2,
-            CriticalType::Local_maximum, persistence, pairType, birth,
-            coordsBirth[0], coordsBirth[1], coordsBirth[2], death,
-            coordsDeath[0], coordsDeath[1], coordsDeath[2]);
-        } else {
-          diagram[0] = std::make_tuple(
-            vertexId1, CriticalType::Local_minimum, vertexId2,
-            CriticalType::Saddle1, persistence, pairType, birth, coordsBirth[0],
-            coordsBirth[1], coordsBirth[2], death, coordsDeath[0],
-            coordsDeath[1], coordsDeath[2]);
-          diagram[pairingsSize] = std::make_tuple(
-            vertexId1, CriticalType::Saddle1, vertexId2,
-            CriticalType::Local_maximum, persistence, pairType, birth,
-            coordsBirth[0], coordsBirth[1], coordsBirth[2], death,
-            coordsDeath[0], coordsDeath[1], coordsDeath[2]);
-        }
+        diagram[0] = std::make_tuple(
+          vertexId1, CriticalType::Local_minimum, vertexId2,
+          CriticalType::Local_maximum, persistence, pairType, birth,
+          coordsBirth[0], coordsBirth[1], coordsBirth[2], death, coordsDeath[0],
+          coordsDeath[1], coordsDeath[2]);
 
       } else {
         diagram[pairIdentifier] = std::make_tuple(
