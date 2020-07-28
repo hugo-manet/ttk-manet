@@ -91,6 +91,7 @@ namespace ttk {
 #pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
         for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
+          Timer timerCurve;
           std::vector<Diagram> diagramColl;
           diagramColl.reserve(final_centroid.size()
                               + intermediateDiagramCurves[jCurve].size());
@@ -103,6 +104,9 @@ namespace ttk {
           const std::array<size_t, 2> sizes
             = {final_centroid.size(), intermediateDiagramCurves[jCurve].size()};
 
+          printMsg("Computing distance matrix for centroid and curve "
+                     + std::to_string(jCurve),
+                   0, timerCurve.getElapsedTime(), threadNumber_);
           PersistenceDiagramDistanceMatrix distMatrixClass;
           distMatrixClass.setWasserstein(WassersteinMetric);
           distMatrixClass.setAlpha(Alpha);
@@ -112,6 +116,7 @@ namespace ttk {
           // TODO put the enum in public visibility ^^
           // this is ConstraintType::RELATIVE_PERSISTENCE_PER_DIAG
           distMatrixClass.setConstraint(3);
+          distMatrixClass.setThreadNumber(this->threadNumber_);
 
           auto distMatrix = distMatrixClass.execute(diagramColl, sizes);
 
@@ -122,6 +127,9 @@ namespace ttk {
             for(size_t j = 0; j < sizes[1]; ++j)
               realDistMatrix(i, j) = distMatrix[i][j];
 
+          printMsg("Time warping matrix for centroid and curve "
+                     + std::to_string(jCurve),
+                   0.5, timerCurve.getElapsedTime(), threadNumber_);
           // TODO parametrize from class param. We should also inherit DTW
           auto path = DynamicTimeWarp().computeWarpingPath(
             realDistMatrix, DeletionCost, false);
@@ -130,6 +138,9 @@ namespace ttk {
           for(const auto &[dir, iCentroid, kOther, w] : path) {
             matchedDiagrams[iCentroid][jCurve].push_back(kOther);
           }
+          printMsg(
+            "Done with matrix for centroid and curve " + std::to_string(jCurve),
+            1, timerCurve.getElapsedTime(), threadNumber_);
         }
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(threadNumber_)
