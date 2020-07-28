@@ -640,6 +640,9 @@ vtkSmartPointer<vtkUnstructuredGrid>
   vtkNew<vtkIntArray> weightCells{};
   weightCells->SetName("Weight");
 
+  vtkNew<vtkIntArray> sliceIdCells{};
+  sliceIdCells->SetName("SliceID");
+
   vtkNew<vtkIntArray> idOfDiagramPoint{};
   idOfDiagramPoint->SetName("DiagramID");
 
@@ -727,6 +730,7 @@ vtkSmartPointer<vtkUnstructuredGrid>
                             lCurveID + startOfCurve[jCurve]};
         timeWarpResult->InsertNextCell(VTK_LINE, 2, ids);
         weightCells->InsertNextValue(weight);
+        sliceIdCells->InsertNextValue(kCentroidID);
       }
 
   timeWarpResult->SetPoints(points);
@@ -734,6 +738,7 @@ vtkSmartPointer<vtkUnstructuredGrid>
   timeWarpResult->GetPointData()->AddArray(idOfCurvePoint);
   timeWarpResult->GetPointData()->AddArray(idOfClusterPoint);
   timeWarpResult->GetCellData()->AddArray(weightCells);
+  timeWarpResult->GetCellData()->AddArray(sliceIdCells);
 
   return timeWarpResult;
 }
