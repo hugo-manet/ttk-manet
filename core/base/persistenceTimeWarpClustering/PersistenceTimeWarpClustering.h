@@ -84,14 +84,18 @@ namespace ttk {
 
     const size_t nCurves = intermediateDiagramCurves.size();
     std::vector<std::vector<std::vector<std::pair<size_t, double>>>>
-      matchedDiagrams;
+      matchedDiagrams(nCurves);
+    for(auto &matchesForCurve : matchedDiagrams)
+      matchesForCurve.assign(final_centroid.size(), {});
     {
       final_centroid = intermediateDiagramCurves[0];
       // list of all matched diagrams for centroid diagram
       for(int iIter = 0; iIter <= NumberOfIterations; ++iIter) {
-        matchedDiagrams.assign(nCurves, {});
-        for(auto &matchesForCurve : matchedDiagrams)
+        std::vector<std::vector<std::vector<std::pair<size_t, double>>>>
+          oldMatchings(nCurves);
+        for(auto &matchesForCurve : oldMatchings)
           matchesForCurve.assign(final_centroid.size(), {});
+        std::swap(oldMatchings, matchedDiagrams);
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for schedule(dynamic) num_threads(threadNumber_)
@@ -156,7 +160,36 @@ namespace ttk {
                      + std::to_string(total_weight),
                    1, timerCurve.getElapsedTime(), threadNumber_);
         }
-        if(iIter == NumberOfIterations)
+        size_t nbOfDifferentSlices = 0, nbOfDifferentMatch = 0;
+        std::vector<bool> sliceChanged(final_centroid.size());
+        for(size_t kDiag = 0; kDiag < final_centroid.size(); ++kDiag) {
+          for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
+            const auto &oldie = oldMatchings[jCurve][kDiag];
+            const auto &newbie = matchedDiagrams[jCurve][kDiag];
+            size_t lOld = 0, lNew = 0;
+            while(lOld < oldie.size() && lNew < newbie.size()) {
+              if(oldie[lOld].first == newbie[lNew].first) {
+                ++lOld;
+                ++lNew;
+              } else if(oldie[lOld].first < newbie[lNew].first) {
+                sliceChanged[kDiag] = true;
+                ++nbOfDifferentMatch;
+                ++lOld;
+              } else {
+                sliceChanged[kDiag] = true;
+                ++nbOfDifferentMatch;
+                ++lNew;
+              }
+            }
+            if(lOld < oldie.size() || lNew < newbie.size()) {
+              sliceChanged[kDiag] = true;
+              nbOfDifferentMatch += oldie.size() - lOld + newbie.size() - lNew;
+            }
+          }
+          if(sliceChanged[kDiag])
+            ++nbOfDifferentSlices;
+        }
+        if(iIter == NumberOfIterations || nbOfDifferentSlices == 0)
           break;
         const int svg_DebugLevel = this->debugLevel_;
         this->setDebugLevel(1);
@@ -164,6 +197,8 @@ namespace ttk {
 #pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
         for(size_t kDiag = 0; kDiag < final_centroid.size(); ++kDiag) {
+          if(!sliceChanged[kDiag])
+            continue;
           std::vector<Diagram> slice;
           for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
             for(auto [lOther, w] : matchedDiagrams[jCurve][kDiag])
@@ -184,8 +219,11 @@ namespace ttk {
           } // */
         }
         this->setDebugLevel(svg_DebugLevel);
-        printMsg("Completed iteration", iIter / (double)NumberOfIterations,
-                 tm.getElapsedTime(), threadNumber_);
+        printMsg("Completed iteration with "
+                   + std::to_string(nbOfDifferentMatch) + " changes in "
+                   + std::to_string(nbOfDifferentSlices) + " slices",
+                 iIter / (double)NumberOfIterations, tm.getElapsedTime(),
+                 threadNumber_);
       }
     }
 #ifdef TTK_ENABLE_OPENMP
