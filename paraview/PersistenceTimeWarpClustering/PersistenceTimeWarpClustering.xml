@@ -382,6 +382,18 @@ between matched critical points.
         </Documentation>
         <DoubleRangeDomain name="range" />
       </DoubleVectorProperty>
+      <IntVectorProperty name="UseTWED"
+          label="Use an edit distance instead (TWED)"
+          command="SetUseTWED"
+          number_of_elements="1"
+          default_values="0">
+          <BooleanDomain name="bool"/>
+          <Documentation>
+            Check this box to use an edit distance
+            instead of a classic Dynamic Time Warp.
+            DeletionCost then becomes a constant suppression cost instead.
+          </Documentation>
+      </IntVectorProperty>
 
       ${DEBUG_WIDGETS}
 

@@ -52,6 +52,7 @@ namespace ttk {
   protected:
     int NumberOfIterations{3};
     double DeletionCost{1.};
+    int UseTWED{false};
 
   public:
     PersistenceTimeWarpClustering() {
@@ -121,7 +122,8 @@ namespace ttk {
           distMatrixClass.setConstraint(3);
           distMatrixClass.setThreadNumber(this->threadNumber_);
 
-          auto distMatrix = distMatrixClass.execute(diagramColl, sizes);
+          auto distMatrix
+            = distMatrixClass.execute(diagramColl, sizes, UseTWED);
 
           // TODO change dynTimeWarp input type to that less efficient one
           boost::numeric::ublas::matrix<double> realDistMatrix(
@@ -133,9 +135,14 @@ namespace ttk {
           printMsg("Time warping matrix for centroid and curve "
                      + std::to_string(jCurve),
                    0.5, timerCurve.getElapsedTime(), threadNumber_);
+          std::vector<double> curvilinearDist;
+          if(UseTWED) {
+            curvilinearDist = std::move(distMatrix.back());
+            distMatrix.pop_back();
+          }
           // TODO parametrize from class param. We should also inherit DTW
           auto path = DynamicTimeWarp().computeWarpingPath(
-            realDistMatrix, DeletionCost, false);
+            realDistMatrix, DeletionCost, UseTWED, curvilinearDist);
 
           matchedDiagrams[0][jCurve].push_back(0);
           for(const auto &[dir, iCentroid, kOther, w] : path) {

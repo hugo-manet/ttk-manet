@@ -255,6 +255,9 @@ public:
   vtkSetMacro(DeletionCost, double);
   vtkGetMacro(DeletionCost, double);
 
+  vtkSetMacro(UseTWED, int);
+  vtkGetMacro(UseTWED, int);
+
 protected:
   ttkPersistenceTimeWarpClustering();
 

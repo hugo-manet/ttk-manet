@@ -6,7 +6,8 @@ using namespace ttk;
 
 std::vector<std::vector<double>> PersistenceDiagramDistanceMatrix::execute(
   const std::vector<Diagram> &intermediateDiagrams,
-  const std::array<size_t, 2> &nInputs) const {
+  const std::array<size_t, 2> &nInputs,
+  bool computeCurvilinear) const {
 
   Timer tm{};
 
@@ -114,7 +115,8 @@ std::vector<std::vector<double>> PersistenceDiagramDistanceMatrix::execute(
   std::vector<std::vector<double>> distMat{};
   if(this->Constraint == ConstraintType::FULL_DIAGRAMS) {
     getDiagramsDistMat(nInputs, distMat, bidder_diagrams_min,
-                       bidder_diagrams_sad, bidder_diagrams_max);
+                       bidder_diagrams_sad, bidder_diagrams_max,
+                       computeCurvilinear);
   } else {
     if(this->do_min_) {
       enrichCurrentBidderDiagrams(
@@ -129,8 +131,8 @@ std::vector<std::vector<double>> PersistenceDiagramDistanceMatrix::execute(
         bidder_diagrams_max, current_bidder_diagrams_max, maxDiagPersistence);
     }
     getDiagramsDistMat(nInputs, distMat, current_bidder_diagrams_min,
-                       current_bidder_diagrams_sad,
-                       current_bidder_diagrams_max);
+                       current_bidder_diagrams_sad, current_bidder_diagrams_max,
+                       computeCurvilinear);
   }
 
   this->printMsg("Complete", 1.0, tm.getElapsedTime(), this->threadNumber_);
@@ -182,9 +184,30 @@ void PersistenceDiagramDistanceMatrix::getDiagramsDistMat(
   std::vector<std::vector<double>> &distanceMatrix,
   const std::vector<BidderDiagram<double>> &diags_min,
   const std::vector<BidderDiagram<double>> &diags_sad,
-  const std::vector<BidderDiagram<double>> &diags_max) const {
+  const std::vector<BidderDiagram<double>> &diags_max,
+  bool computeCurvilinear) const {
 
-  distanceMatrix.resize(nInputs[0]);
+  distanceMatrix.resize(nInputs[0] + (computeCurvilinear ? 1 : 0));
+
+  const auto getDist = [&](const size_t a, const size_t b) -> double {
+    double distance{};
+    if(this->do_min_) {
+      auto &dimin = diags_min[a];
+      auto &djmin = diags_min[b];
+      distance += computeDistance(dimin, djmin);
+    }
+    if(this->do_sad_) {
+      auto &disad = diags_sad[a];
+      auto &djsad = diags_sad[b];
+      distance += computeDistance(disad, djsad);
+    }
+    if(this->do_max_) {
+      auto &dimax = diags_max[a];
+      auto &djmax = diags_max[b];
+      distance += computeDistance(dimax, djmax);
+    }
+    return distance;
+  };
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for schedule(dynamic) num_threads(this->threadNumber_)
@@ -198,27 +221,6 @@ void PersistenceDiagramDistanceMatrix::getDiagramsDistMat(
     } else {
       distanceMatrix[i].resize(nInputs[1]);
     }
-
-    const auto getDist = [&](const size_t a, const size_t b) -> double {
-      double distance{};
-      if(this->do_min_) {
-        auto &dimin = diags_min[a];
-        auto &djmin = diags_min[b];
-        distance += computeDistance(dimin, djmin);
-      }
-      if(this->do_sad_) {
-        auto &disad = diags_sad[a];
-        auto &djsad = diags_sad[b];
-        distance += computeDistance(disad, djsad);
-      }
-      if(this->do_max_) {
-        auto &dimax = diags_max[a];
-        auto &djmax = diags_max[b];
-        distance += computeDistance(dimax, djmax);
-      }
-      return distance;
-    };
-
     if(nInputs[1] == 0) {
       // square matrix: only compute the upper triangle (i < j < nInputs[0])
       for(size_t j = i + 1; j < nInputs[0]; ++j) {
@@ -237,6 +239,27 @@ void PersistenceDiagramDistanceMatrix::getDiagramsDistMat(
     for(size_t i = 0; i < nInputs[0]; ++i) {
       for(size_t j = i + 1; j < nInputs[0]; ++j) {
         distanceMatrix[j][i] = distanceMatrix[i][j];
+      }
+    }
+  }
+  if(computeCurvilinear) {
+    auto &curvilinearDist = distanceMatrix.back();
+    curvilinearDist.resize(nInputs[0] + nInputs[1]);
+    if(nInputs[1] == 0) {
+      // Just copy the superdiagonal
+      curvilinearDist[0] = 0.;
+      for(size_t i = 1; i < nInputs[0]; ++i)
+        curvilinearDist[i] = distanceMatrix[i - 1][i];
+    } else {
+      curvilinearDist[0] = 0.;
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp parallel for num_threads(this->threadNumber_)
+#endif // TTK_ENABLE_OPENMP
+      for(size_t i = 1; i < nInputs[0] + nInputs[1]; ++i) {
+        if(i == nInputs[0])
+          curvilinearDist[i] = 0; // we are at start of the second curve
+        else
+          curvilinearDist[i] = getDist(i - 1, i);
       }
     }
   }
