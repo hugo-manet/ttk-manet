@@ -61,7 +61,8 @@ namespace ttk {
 
     std::vector<std::vector<double>>
       execute(const std::vector<Diagram> &intermediateDiagrams,
-              const std::array<size_t, 2> &nInputs) const;
+              const std::array<size_t, 2> &nInputs,
+              bool computeCurvilinear = false) const;
 
     inline void setWasserstein(const int data) {
       Wasserstein = data;
@@ -105,12 +106,12 @@ namespace ttk {
       const std::vector<BidderDiagram<double>> &bidder_diags) const;
     double computeDistance(const BidderDiagram<double> &D1,
                            const BidderDiagram<double> &D2) const;
-    void getDiagramsDistMat(
-      const std::array<size_t, 2> &nInputs,
-      std::vector<std::vector<double>> &distanceMatrix,
-      const std::vector<BidderDiagram<double>> &diags_min,
-      const std::vector<BidderDiagram<double>> &diags_sad,
-      const std::vector<BidderDiagram<double>> &diags_max) const;
+    void getDiagramsDistMat(const std::array<size_t, 2> &nInputs,
+                            std::vector<std::vector<double>> &distanceMatrix,
+                            const std::vector<BidderDiagram<double>> &diags_min,
+                            const std::vector<BidderDiagram<double>> &diags_sad,
+                            const std::vector<BidderDiagram<double>> &diags_max,
+                            bool computeCurvilinear = false) const;
     void
       setBidderDiagrams(const size_t nInputs,
                         std::vector<Diagram> &inputDiagrams,
