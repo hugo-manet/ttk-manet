@@ -88,7 +88,7 @@ namespace ttk {
     {
       final_centroid = intermediateDiagramCurves[0];
       // list of all matched diagrams for centroid diagram
-      for(int iIter = 0; iIter < NumberOfIterations; ++iIter) {
+      for(int iIter = 0; iIter <= NumberOfIterations; ++iIter) {
         matchedDiagrams.assign(final_centroid.size(), {});
         for(auto &matchesOfDiag : matchedDiagrams)
           matchesOfDiag.assign(nCurves, {});
@@ -156,6 +156,8 @@ namespace ttk {
                      + std::to_string(total_weight),
                    1, timerCurve.getElapsedTime(), threadNumber_);
         }
+        if(iIter == NumberOfIterations)
+          break;
         const int svg_DebugLevel = this->debugLevel_;
         this->setDebugLevel(1);
 #ifdef TTK_ENABLE_OPENMP
