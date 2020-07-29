@@ -83,7 +83,8 @@ namespace ttk {
 #endif // TTK_ENABLE_OPENMP
 
     const size_t nCurves = intermediateDiagramCurves.size();
-    std::vector<std::vector<std::vector<size_t>>> matchedDiagrams;
+    std::vector<std::vector<std::vector<std::pair<size_t, double>>>>
+      matchedDiagrams;
     {
       final_centroid = intermediateDiagramCurves[0];
       // list of all matched diagrams for centroid diagram
@@ -144,13 +145,16 @@ namespace ttk {
           auto path = DynamicTimeWarp().computeWarpingPath(
             realDistMatrix, DeletionCost, UseTWED, curvilinearDist);
 
-          matchedDiagrams[0][jCurve].push_back(0);
+          double total_weight = realDistMatrix(0, 0);
+          matchedDiagrams[0][jCurve].push_back({0, realDistMatrix(0, 0)});
           for(const auto &[dir, iCentroid, kOther, w] : path) {
-            matchedDiagrams[iCentroid][jCurve].push_back(kOther);
+            total_weight += w;
+            matchedDiagrams[iCentroid][jCurve].push_back({kOther, w});
           }
-          printMsg(
-            "Done with matrix for centroid and curve " + std::to_string(jCurve),
-            1, timerCurve.getElapsedTime(), threadNumber_);
+          printMsg("Done with matrix for centroid and curve "
+                     + std::to_string(jCurve) + ", distance from centroid "
+                     + std::to_string(total_weight),
+                   1, timerCurve.getElapsedTime(), threadNumber_);
         }
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(threadNumber_)
@@ -158,7 +162,7 @@ namespace ttk {
         for(size_t iDiag = 0; iDiag < final_centroid.size(); ++iDiag) {
           std::vector<Diagram> slice;
           for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
-            for(auto kOther : matchedDiagrams[iDiag][jCurve])
+            for(auto [kOther, w] : matchedDiagrams[iDiag][jCurve])
               slice.emplace_back(intermediateDiagramCurves[jCurve][kOther]);
           }
           {
@@ -190,8 +194,8 @@ namespace ttk {
     time_warp.emplace_back(nCurves); // Only one cluster, all curves in
     for(size_t iCentroid = 0; iCentroid < matchedDiagrams.size(); ++iCentroid) {
       for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
-        for(auto kOther : matchedDiagrams[iCentroid][jCurve]) {
-          time_warp[0][jCurve].emplace_back(iCentroid, kOther, 0.);
+        for(auto [kOther, w] : matchedDiagrams[iCentroid][jCurve]) {
+          time_warp[0][jCurve].emplace_back(iCentroid, kOther, w);
         }
       }
     }
