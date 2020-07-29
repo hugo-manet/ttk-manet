@@ -156,6 +156,8 @@ namespace ttk {
                      + std::to_string(total_weight),
                    1, timerCurve.getElapsedTime(), threadNumber_);
         }
+        const int svg_DebugLevel = this->debugLevel_;
+        this->setDebugLevel(1);
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
@@ -164,11 +166,6 @@ namespace ttk {
           for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
             for(auto [kOther, w] : matchedDiagrams[iDiag][jCurve])
               slice.emplace_back(intermediateDiagramCurves[jCurve][kOther]);
-          }
-          {
-            printMsg("Clustering " + std::to_string(slice.size())
-                     + " diagrams in " + std::to_string(NumberOfClusters)
-                     + " cluster(s).");
           }
 
           std::vector<std::vector<std::vector<matchingTuple>>> temp_matchings;
@@ -184,6 +181,9 @@ namespace ttk {
             temp_matchings.clear();
           } // */
         }
+        this->setDebugLevel(svg_DebugLevel);
+        printMsg("Completed iteration", iIter / (double)NumberOfIterations,
+                 tm.getElapsedTime(), threadNumber_);
       }
     }
 #ifdef TTK_ENABLE_OPENMP
