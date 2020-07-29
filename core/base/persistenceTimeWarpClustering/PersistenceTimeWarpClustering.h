@@ -76,6 +76,10 @@ namespace ttk {
     std::vector<std::vector<std::vector<TimeWarpTuple>>> &time_warp) {
 
     Timer tm;
+#ifdef TTK_ENABLE_OPENMP
+    const int svg_OpenMP_nested = omp_get_nested();
+    omp_set_nested(1);
+#endif // TTK_ENABLE_OPENMP
 
     const size_t nCurves = intermediateDiagramCurves.size();
     std::vector<std::vector<std::vector<size_t>>> matchedDiagrams;
@@ -171,6 +175,9 @@ namespace ttk {
         }
       }
     }
+#ifdef TTK_ENABLE_OPENMP
+    omp_set_nested(svg_OpenMP_nested);
+#endif // TTK_ENABLE_OPENMP
 
     printMsg("Completed all iterations", 1, tm.getElapsedTime(), threadNumber_);
     time_warp.emplace_back(nCurves); // Only one cluster, all curves in
