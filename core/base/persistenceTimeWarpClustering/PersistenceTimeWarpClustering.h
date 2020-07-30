@@ -175,8 +175,8 @@ namespace ttk {
             while(lOld < oldie.size() && lNew < newbie.size()) {
               if(oldie[lOld].first == newbie[lNew].first) {
                 if(oldie[lOld].second != newbie[lNew].second)
-                  std::cout << oldie[lOld] << " != " << newbie[lNew]
-                            << std::endl;
+                  std::cout << oldie[lOld] << " != " << newbie[lNew] << " from "
+                            << jCurve << " of slice " << kDiag << std::endl;
                 ++lOld;
                 ++lNew;
               } else if(oldie[lOld].first < newbie[lNew].first) {
