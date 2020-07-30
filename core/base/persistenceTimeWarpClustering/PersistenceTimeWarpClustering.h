@@ -116,13 +116,14 @@ namespace ttk {
           std::vector<Diagram> diagramColl;
           diagramColl.reserve(final_centroid.size()
                               + intermediateDiagramCurves[jCurve].size());
-          diagramColl.insert(
-            diagramColl.cend(), final_centroid.cbegin(), final_centroid.cend());
+          for(size_t kDiag = 0; kDiag < final_centroid.size(); ++kDiag)
+            if(sliceChanged[kDiag])
+              diagramColl.push_back(final_centroid[kDiag]);
+          const std::array<size_t, 2> sizes
+            = {diagramColl.size(), intermediateDiagramCurves[jCurve].size()};
           diagramColl.insert(diagramColl.cend(),
                              intermediateDiagramCurves[jCurve].cbegin(),
                              intermediateDiagramCurves[jCurve].cend());
-          const std::array<size_t, 2> sizes
-            = {final_centroid.size(), intermediateDiagramCurves[jCurve].size()};
 
           printMsg("Computing distance matrix for centroid and curve "
                      + std::to_string(jCurve),
@@ -141,9 +142,14 @@ namespace ttk {
           auto distMatrix
             = distMatrixClass.execute(diagramColl, sizes, UseTWED);
 
-          for(size_t i = 0; i < sizes[0]; ++i)
-            for(size_t j = 0; j < sizes[1]; ++j)
-              realDistMatrix[jCurve](i, j) = distMatrix[i][j];
+          for(size_t kDiag = 0, kComputed = 0; kDiag < sizes[0]; ++kDiag) {
+            if(sliceChanged[kDiag]) {
+              for(size_t lOther = 0; lOther < sizes[1]; ++lOther)
+                realDistMatrix[jCurve](kDiag, lOther)
+                  = distMatrix[kComputed][lOther];
+              ++kComputed;
+            }
+          }
 
           printMsg("Time warping matrix for centroid and curve "
                      + std::to_string(jCurve),
