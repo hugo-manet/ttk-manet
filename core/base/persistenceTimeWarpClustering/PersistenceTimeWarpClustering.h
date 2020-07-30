@@ -44,6 +44,11 @@
 using namespace std;
 using namespace ttk;
 
+template <class A, class B>
+std::ostream &operator<<(std::ostream &os, const std::pair<A, B> &p) {
+  return os << '{' << p.first << ',' << p.second << '}';
+}
+
 namespace ttk {
 
   using DiagramCurve = std::vector<ttk::Diagram>;
@@ -169,13 +174,20 @@ namespace ttk {
             size_t lOld = 0, lNew = 0;
             while(lOld < oldie.size() && lNew < newbie.size()) {
               if(oldie[lOld].first == newbie[lNew].first) {
+                if(oldie[lOld].second != newbie[lNew].second)
+                  std::cout << oldie[lOld] << " != " << newbie[lNew]
+                            << std::endl;
                 ++lOld;
                 ++lNew;
               } else if(oldie[lOld].first < newbie[lNew].first) {
+                std::cout << "Removed " << oldie[lOld] << " from " << jCurve
+                          << " of slice " << kDiag << std::endl;
                 sliceChanged[kDiag] = true;
                 ++nbOfDifferentMatch;
                 ++lOld;
               } else {
+                std::cout << "Added " << newbie[lNew] << " to " << jCurve
+                          << " of slice " << kDiag << std::endl;
                 sliceChanged[kDiag] = true;
                 ++nbOfDifferentMatch;
                 ++lNew;
