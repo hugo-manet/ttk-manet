@@ -41,7 +41,8 @@ vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
         newCost += distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol)
                    + distanceMatrix(iRowStart, jColStart);
     } else
-      newCost += multiplier * distanceMatrix(iRowStart, jColStart);
+      newCost += multiplier
+                 * distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol);
     if(dynCostPath(iRowStart + deltaRow, jColStart + deltaCol) > newCost) {
       dynCostPath(iRowStart + deltaRow, jColStart + deltaCol) = newCost;
       pathDirection(iRowStart + deltaRow, jColStart + deltaCol) = dir;
