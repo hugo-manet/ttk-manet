@@ -31,16 +31,17 @@ vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
   auto propagateTo = [&](size_t iRowStart, size_t jColStart, size_t deltaRow,
                          size_t deltaCol, Direction dir, double multiplier) {
     double newCost = dynCostPath(iRowStart, jColStart);
-    if(EditDistance && dir != Direction::DIR_BOTH) {
+    if(EditDistance) {
       if(dir == Direction::DIR_SAME_COL)
         newCost += DeletionCost + curveCompressionCost[iRowStart + deltaRow];
-      else
+      else if(dir == Direction::DIR_SAME_ROW)
         newCost
           += DeletionCost + curveCompressionCost[nRows + jColStart + deltaCol];
+      else
+        newCost += distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol)
+                   + distanceMatrix(iRowStart, jColStart);
     } else
-      newCost += multiplier
-                 * (distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol)
-                    + distanceMatrix(iRowStart, jColStart));
+      newCost += multiplier * distanceMatrix(iRowStart, jColStart);
     if(dynCostPath(iRowStart + deltaRow, jColStart + deltaCol) > newCost) {
       dynCostPath(iRowStart + deltaRow, jColStart + deltaCol) = newCost;
       pathDirection(iRowStart + deltaRow, jColStart + deltaCol) = dir;
