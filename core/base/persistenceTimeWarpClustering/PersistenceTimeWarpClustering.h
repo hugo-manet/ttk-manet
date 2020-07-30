@@ -94,7 +94,13 @@ namespace ttk {
       matchesForCurve.assign(final_centroid.size(), {});
     {
       final_centroid = intermediateDiagramCurves[0];
-      // list of all matched diagrams for centroid diagram
+      std::vector<bool> sliceChanged(final_centroid.size(), true);
+      std::vector<boost::numeric::ublas::matrix<double>> realDistMatrix(
+        nCurves);
+      for(size_t jCurve = 0; jCurve < nCurves; ++jCurve)
+        realDistMatrix[jCurve].resize(
+          final_centroid.size(), intermediateDiagramCurves[jCurve].size());
+
       for(int iIter = 0; iIter <= NumberOfIterations; ++iIter) {
         std::vector<std::vector<std::vector<std::pair<size_t, double>>>>
           oldMatchings(nCurves);
@@ -135,12 +141,9 @@ namespace ttk {
           auto distMatrix
             = distMatrixClass.execute(diagramColl, sizes, UseTWED);
 
-          // TODO change dynTimeWarp input type to that less efficient one
-          boost::numeric::ublas::matrix<double> realDistMatrix(
-            sizes[0], sizes[1]);
           for(size_t i = 0; i < sizes[0]; ++i)
             for(size_t j = 0; j < sizes[1]; ++j)
-              realDistMatrix(i, j) = distMatrix[i][j];
+              realDistMatrix[jCurve](i, j) = distMatrix[i][j];
 
           printMsg("Time warping matrix for centroid and curve "
                      + std::to_string(jCurve),
@@ -152,10 +155,11 @@ namespace ttk {
           }
           // TODO parametrize from class param. We should also inherit DTW
           auto path = DynamicTimeWarp().computeWarpingPath(
-            realDistMatrix, DeletionCost, UseTWED, curvilinearDist);
+            realDistMatrix[jCurve], DeletionCost, UseTWED, curvilinearDist);
 
-          double total_weight = realDistMatrix(0, 0);
-          matchedDiagrams[jCurve][0].push_back({0, realDistMatrix(0, 0)});
+          double total_weight = realDistMatrix[jCurve](0, 0);
+          matchedDiagrams[jCurve][0].push_back(
+            {0, realDistMatrix[jCurve](0, 0)});
           for(const auto &[dir, kDiagCentroid, lOther, w] : path) {
             total_weight += w;
             matchedDiagrams[jCurve][kDiagCentroid].push_back({lOther, w});
@@ -166,7 +170,7 @@ namespace ttk {
                    1, timerCurve.getElapsedTime(), threadNumber_);
         }
         size_t nbOfDifferentSlices = 0, nbOfDifferentMatch = 0;
-        std::vector<bool> sliceChanged(final_centroid.size());
+        sliceChanged.assign(final_centroid.size(), false);
         for(size_t kDiag = 0; kDiag < final_centroid.size(); ++kDiag) {
           for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
             const auto &oldie = oldMatchings[jCurve][kDiag];
