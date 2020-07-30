@@ -637,7 +637,7 @@ vtkSmartPointer<vtkUnstructuredGrid>
 
   vtkNew<vtkUnstructuredGrid> timeWarpResult{};
 
-  vtkNew<vtkIntArray> weightCells{};
+  vtkNew<vtkDoubleArray> weightCells{};
   weightCells->SetName("Weight");
 
   vtkNew<vtkIntArray> sliceIdCells{};
