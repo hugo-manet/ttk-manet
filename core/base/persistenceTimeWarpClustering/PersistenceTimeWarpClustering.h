@@ -208,8 +208,20 @@ namespace ttk {
               ++lNew;
             }
           }
-          if(sliceChanged[kDiag])
+          if(sliceChanged[kDiag]) {
             ++nbOfDifferentSlices;
+            double oldWeightOfSlice = 0., newWeightOfSlice = 0.;
+
+            for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
+              for(auto [kC, oW] : oldMatchings[jCurve][kDiag])
+                oldWeightOfSlice += oW;
+              for(auto [kC, nW] : matchedDiagrams[jCurve][kDiag])
+                newWeightOfSlice += nW;
+            }
+            std::cout << "Slice " << kDiag << " changed from "
+                      << oldWeightOfSlice << " to " << newWeightOfSlice
+                      << std::endl;
+          }
         }
         if(iIter == NumberOfIterations || nbOfDifferentSlices == 0)
           break;
