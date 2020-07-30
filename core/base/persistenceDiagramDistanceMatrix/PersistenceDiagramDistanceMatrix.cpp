@@ -136,10 +136,10 @@ std::vector<std::vector<double>> PersistenceDiagramDistanceMatrix::execute(
   }
 
   this->printMsg("Complete", 1.0, tm.getElapsedTime(), this->threadNumber_);
-
+/*
   for(auto &lig : distMat)
     for(auto &val : lig)
-      val = std::sqrt(val);
+      val = std::sqrt(val); // */
 
   return distMat;
 }
