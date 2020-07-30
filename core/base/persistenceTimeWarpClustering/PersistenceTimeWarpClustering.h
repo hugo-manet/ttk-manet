@@ -193,9 +193,19 @@ namespace ttk {
                 ++lNew;
               }
             }
-            if(lOld < oldie.size() || lNew < newbie.size()) {
+            while(lOld < oldie.size()) {
+              std::cout << "Removed " << oldie[lOld] << " from " << jCurve
+                        << " of slice " << kDiag << std::endl;
               sliceChanged[kDiag] = true;
-              nbOfDifferentMatch += oldie.size() - lOld + newbie.size() - lNew;
+              ++nbOfDifferentMatch;
+              ++lOld;
+            }
+            while(lNew < newbie.size()) {
+              std::cout << "Added " << newbie[lNew] << " to " << jCurve
+                        << " of slice " << kDiag << std::endl;
+              sliceChanged[kDiag] = true;
+              ++nbOfDifferentMatch;
+              ++lNew;
             }
           }
           if(sliceChanged[kDiag])
