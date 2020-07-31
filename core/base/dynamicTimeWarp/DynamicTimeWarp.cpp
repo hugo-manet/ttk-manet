@@ -9,8 +9,6 @@ using namespace ttk;
 vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
   DynamicTimeWarp::computeWarpingPath(
     const boost::numeric::ublas::matrix<double> &distanceMatrix,
-    double DeletionCost,
-    bool EditDistance,
     const std::vector<double> &curveCompressionCost) const {
   vector<tuple<Direction, size_t, size_t, double>> retVal;
 
@@ -31,7 +29,7 @@ vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
   auto propagateTo = [&](size_t iRowStart, size_t jColStart, size_t deltaRow,
                          size_t deltaCol, Direction dir, double multiplier) {
     double newCost = dynCostPath(iRowStart, jColStart);
-    if(EditDistance) {
+    if(UseTWED) {
       if(dir == Direction::DIR_SAME_COL)
         newCost += DeletionCost + curveCompressionCost[iRowStart + deltaRow];
       else if(dir == Direction::DIR_SAME_ROW)

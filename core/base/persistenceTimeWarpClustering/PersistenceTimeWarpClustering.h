@@ -159,9 +159,12 @@ namespace ttk {
             curvilinearDist = std::move(distMatrix.back());
             distMatrix.pop_back();
           }
+          DynamicTimeWarp dtwClass;
+          dtwClass.UseTWED = UseTWED;
+          dtwClass.DeletionCost = DeletionCost;
           // TODO parametrize from class param. We should also inherit DTW
-          auto path = DynamicTimeWarp().computeWarpingPath(
-            realDistMatrix[jCurve], DeletionCost, UseTWED, curvilinearDist);
+          auto path = dtwClass.computeWarpingPath(
+            realDistMatrix[jCurve], curvilinearDist);
 
           double total_weight = realDistMatrix[jCurve](0, 0);
           matchedDiagrams[jCurve][0].push_back(

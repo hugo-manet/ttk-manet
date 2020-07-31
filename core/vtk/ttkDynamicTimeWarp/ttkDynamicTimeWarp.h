@@ -47,7 +47,6 @@ private:
    */
   /** Configures the weights on the path
    */
-  double DeletionCost{1};
 
   /** Copy filter mechanism from MatrixToHeatMap
    */
@@ -58,7 +57,6 @@ private:
   int SplitMatrix{0};
   int SplitPivot{0};
   int CopyRemainingDataOnPoints{0};
-  int UseTWED{0};
 
 public:
   /**

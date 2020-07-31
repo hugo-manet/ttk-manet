@@ -180,8 +180,7 @@ int ttkDynamicTimeWarp::RequestData(vtkInformation *request,
           ->GetVariantValue(nRows + jCol)
           .ToDouble());
   }
-  auto warpingPath = this->computeWarpingPath(
-    distanceMatrix, this->DeletionCost, this->UseTWED, compressionDist);
+  auto warpingPath = this->computeWarpingPath(distanceMatrix, compressionDist);
 
   auto output_path = vtkUnstructuredGrid::SafeDownCast(
     outputVector->GetInformationObject(0)->Get(vtkDataObject::DATA_OBJECT()));

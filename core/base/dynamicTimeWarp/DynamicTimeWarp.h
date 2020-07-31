@@ -30,12 +30,13 @@ namespace ttk {
    * an optimal warping path for a given distance matrix
    */
   class DynamicTimeWarp : virtual public Debug {
+  protected:
+    double DeletionCost{1};
+    int UseTWED{0};
 
   public:
     DynamicTimeWarp() {
-      this->setDebugMsgPrefix(
-        "DynamicTimeWarp"); // inherited from Debug: prefix will be printed at the
-      // beginning of every msg
+      this->setDebugMsgPrefix("DynamicTimeWarp");
     };
     ~DynamicTimeWarp(){};
 
@@ -57,8 +58,6 @@ namespace ttk {
     std::vector<std::tuple<Direction, size_t, size_t, double>>
       computeWarpingPath(
         const boost::numeric::ublas::matrix<double> &distanceMatrix,
-        double DeletionCost,
-        bool EditDistance,
         const std::vector<double> &curveCompressionCost = {}) const;
 
   }; // DynamicTimeWarp class
