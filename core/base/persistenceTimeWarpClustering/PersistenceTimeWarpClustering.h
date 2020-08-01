@@ -307,12 +307,9 @@ namespace ttk {
           break;
         const int svg_DebugLevel = this->debugLevel_;
         this->setDebugLevel(1);
-#ifdef TTK_ENABLE_OPENMP
-#pragma omp parallel for num_threads(threadNumber_)
-#endif // TTK_ENABLE_OPENMP
-        for(size_t kDiag = 0; kDiag < final_centroid.size(); ++kDiag) {
+        auto recomputeDiagram = [&](size_t kDiag) {
           if(!sliceChanged[kDiag])
-            continue;
+            return;
           std::vector<Diagram> slice;
           for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
             if(UseTWED) {
@@ -361,7 +358,18 @@ namespace ttk {
              std::end(temp_matchings), std::back_inserter(all_matchings));
                       temp_matchings.clear();
                     } // */
-        }
+        };
+        // TODO maybe lock the dependencies with mutexes to mix parallels ?
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp parallel for num_threads(threadNumber_)
+#endif // TTK_ENABLE_OPENMP
+        for(size_t kDiag = 0; kDiag < final_centroid.size(); kDiag += 2)
+          recomputeDiagram(kDiag);
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp parallel for num_threads(threadNumber_)
+#endif // TTK_ENABLE_OPENMP
+        for(size_t kDiag = 1; kDiag < final_centroid.size(); kDiag += 2)
+          recomputeDiagram(kDiag);
         this->setDebugLevel(svg_DebugLevel);
         printMsg("Completed iteration with "
                    + std::to_string(nbOfDifferentMatch) + " changes in "
