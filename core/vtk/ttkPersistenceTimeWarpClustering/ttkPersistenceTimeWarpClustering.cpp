@@ -779,7 +779,8 @@ vtkSmartPointer<vtkUnstructuredGrid>
     std::vector<std::vector<std::tuple<size_t, size_t>>> sliceMembers(nbSlices);
     for(size_t jCurve = 0; jCurve < time_warp_[iCentroid].size(); ++jCurve)
       for(auto &[kCentroidID, lCurveID, w] : time_warp_[iCentroid][jCurve])
-        sliceMembers[kCentroidID].push_back({jCurve, lCurveID});
+        if(lCurveID != -1)
+          sliceMembers[kCentroidID].push_back({jCurve, lCurveID});
     for(size_t kSlice = 0; kSlice < nbSlices; ++kSlice) {
       for(auto &[j1, l1] : sliceMembers[kSlice]) {
         points->InsertNextPoint(

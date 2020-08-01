@@ -277,9 +277,9 @@ namespace ttk {
         if(iIter == NumberOfIterations || nbOfDifferentSlices == 0)
           break;
         const int svg_DebugLevel = this->debugLevel_;
-        // this->setDebugLevel(1);
+        this->setDebugLevel(1);
 #ifdef TTK_ENABLE_OPENMP
-//#pragma omp parallel for num_threads(threadNumber_)
+#pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
         for(size_t kDiag = 0; kDiag < final_centroid.size(); ++kDiag) {
           if(!sliceChanged[kDiag])
