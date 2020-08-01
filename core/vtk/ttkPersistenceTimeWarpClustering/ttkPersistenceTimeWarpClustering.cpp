@@ -679,8 +679,8 @@ vtkSmartPointer<vtkUnstructuredGrid>
   std::vector<size_t> startOfCurve = {0};
   for(size_t jCurve = 0; jCurve < intermediateDiagramsCurves_.size();
       ++jCurve) {
-    for(size_t kDiag = 0; kDiag < intermediateDiagramsCurves_[jCurve].size();
-        ++kDiag) {
+    for(size_t lOther = 0; lOther < intermediateDiagramsCurves_[jCurve].size();
+        ++lOther) {
       double x = 0;
       double y = 0;
       if(DisplayMethod == 1 && Spacing > 0) {
@@ -691,11 +691,17 @@ vtkSmartPointer<vtkUnstructuredGrid>
              + Spacing * max_dimension_total_ * cos(angle);
         y += Spacing * max_dimension_total_ * sin(angle);
       }
-      double z = kDiag * max_dimension_total_;
+      double z = lOther * max_dimension_total_;
       points->InsertNextPoint(x, y, z);
       idOfDiagramPoint->InsertNextValue(count++);
       idOfCurvePoint->InsertNextValue(jCurve);
       idOfClusterPoint->InsertNextValue(inv_clustering_[jCurve]);
+      if(lOther == 0)
+        continue;
+      vtkIdType ids[2] = {count - 2, count - 1};
+      timeWarpResult->InsertNextCell(VTK_LINE, 2, ids);
+      weightCells->InsertNextValue(-1.);
+      sliceIdCells->InsertNextValue(-1);
     }
     startOfCurve.push_back(startOfCurve.back()
                            + intermediateDiagramsCurves_[jCurve].size());
@@ -716,6 +722,12 @@ vtkSmartPointer<vtkUnstructuredGrid>
       idOfCurvePoint->InsertNextValue(intermediateDiagramsCurves_.size()
                                       + iCentroid);
       idOfClusterPoint->InsertNextValue(iCentroid);
+      if(kDiag == 0)
+        continue;
+      vtkIdType ids[2] = {count - 2, count - 1};
+      timeWarpResult->InsertNextCell(VTK_LINE, 2, ids);
+      weightCells->InsertNextValue(-1.);
+      sliceIdCells->InsertNextValue(-1);
     }
     startOfCentroid.push_back(startOfCentroid.back()
                               + final_centroid_[iCentroid].size());
@@ -728,6 +740,8 @@ vtkSmartPointer<vtkUnstructuredGrid>
           time_warp_[iCentroid][jCurve]) {
         vtkIdType ids[2] = {kCentroidID + startOfCentroid[iCentroid],
                             lCurveID + startOfCurve[jCurve]};
+        if(UseTWED && lCurveID == -1)
+          ids[1] = kCentroidID - 1 + startOfCentroid[iCentroid];
         timeWarpResult->InsertNextCell(VTK_LINE, 2, ids);
         weightCells->InsertNextValue(weight);
         sliceIdCells->InsertNextValue(kCentroidID);
