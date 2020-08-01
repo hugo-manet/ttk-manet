@@ -45,8 +45,9 @@ using namespace std;
 using namespace ttk;
 
 template <class A, class B>
-std::ostream &operator<<(std::ostream &os, const std::pair<A, B> &p) {
-  return os << '{' << p.first << ',' << p.second << '}';
+std::ostream &operator<<(std::ostream &os, const std::tuple<A, A, B> &p) {
+  return os << '{' << std::get<0>(p) << ',' << std::get<1>(p) << ','
+            << std::get<2>(p) << '}';
 }
 
 namespace ttk {
@@ -88,7 +89,15 @@ namespace ttk {
 #endif // TTK_ENABLE_OPENMP
 
     const size_t nCurves = intermediateDiagramCurves.size();
-    std::vector<std::vector<std::vector<std::pair<size_t, double>>>>
+    std::vector<size_t> offsetForCurve = {0};
+    std::vector<size_t> nDiagOfCurve(nCurves);
+    for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
+      nDiagOfCurve[jCurve] = intermediateDiagramCurves[jCurve].size();
+      offsetForCurve.push_back(offsetForCurve.back() + nDiagOfCurve[jCurve]);
+    }
+    std::vector<std::vector<std::tuple<int, int, double>>> matchGraph(
+      offsetForCurve.back() + final_centroid.size());
+    std::vector<std::vector<std::vector<std::pair<int, double>>>>
       matchedDiagrams(nCurves);
     for(auto &matchesForCurve : matchedDiagrams)
       matchesForCurve.assign(final_centroid.size(), {});
@@ -102,11 +111,9 @@ namespace ttk {
           final_centroid.size(), intermediateDiagramCurves[jCurve].size());
 
       for(int iIter = 0; iIter <= NumberOfIterations; ++iIter) {
-        std::vector<std::vector<std::vector<std::pair<size_t, double>>>>
-          oldMatchings(nCurves);
-        for(auto &matchesForCurve : oldMatchings)
-          matchesForCurve.assign(final_centroid.size(), {});
-        std::swap(oldMatchings, matchedDiagrams);
+        std::vector<std::vector<std::tuple<int, int, double>>> oldMatchGraph(
+          matchGraph.size());
+        std::swap(oldMatchGraph, matchGraph);
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for schedule(dynamic) num_threads(threadNumber_)
@@ -162,16 +169,47 @@ namespace ttk {
           DynamicTimeWarp dtwClass;
           dtwClass.UseTWED = UseTWED;
           dtwClass.DeletionCost = DeletionCost;
+          dtwClass.MetricExponent = 2.;
           // TODO parametrize from class param. We should also inherit DTW
           auto path = dtwClass.computeWarpingPath(
             realDistMatrix[jCurve], curvilinearDist);
 
           double total_weight = realDistMatrix[jCurve](0, 0);
-          matchedDiagrams[jCurve][0].push_back(
-            {0, realDistMatrix[jCurve](0, 0)});
+          if(!UseTWED)
+            matchedDiagrams[jCurve][0].push_back(
+              {0, realDistMatrix[jCurve](0, 0)});
           for(const auto &[dir, kDiagCentroid, lOther, w] : path) {
             total_weight += w;
-            matchedDiagrams[jCurve][kDiagCentroid].push_back({lOther, w});
+            if(UseTWED) {
+              switch(dir) {
+                case DynamicTimeWarp::Direction::DIR_SAME_COL:
+                  matchedDiagrams[jCurve][kDiagCentroid].push_back({-1, w});
+                  matchGraph[offsetForCurve.back() + kDiagCentroid - 1]
+                    .push_back({-1, kDiagCentroid, w});
+                  matchGraph[offsetForCurve.back() + kDiagCentroid].push_back(
+                    {-1, kDiagCentroid - 1, w});
+                  break;
+                case DynamicTimeWarp::Direction::DIR_BOTH:
+                  matchedDiagrams[jCurve][kDiagCentroid].push_back({lOther, w});
+                  matchGraph[offsetForCurve[jCurve] + lOther].push_back(
+                    {-1, kDiagCentroid, w});
+                  matchGraph[offsetForCurve.back() + kDiagCentroid].push_back(
+                    {jCurve, lOther, w});
+                  break;
+                case DynamicTimeWarp::Direction::DIR_SAME_ROW:
+                  matchGraph[offsetForCurve[jCurve] + lOther].push_back(
+                    {jCurve, lOther - 1, w});
+                  matchGraph[offsetForCurve[jCurve] + lOther - 1].push_back(
+                    {jCurve, lOther, w});
+                  break;
+              }
+            } else {
+              matchedDiagrams[jCurve][kDiagCentroid].push_back({lOther, w});
+              matchGraph[offsetForCurve[jCurve] + lOther].push_back(
+                {-1, kDiagCentroid, w});
+              matchGraph[offsetForCurve.back() + kDiagCentroid].push_back(
+                {jCurve, lOther, w});
+            }
           }
           printMsg("Done with matrix for centroid and curve "
                      + std::to_string(jCurve) + ", distance from centroid "
@@ -181,56 +219,56 @@ namespace ttk {
         size_t nbOfDifferentSlices = 0, nbOfDifferentMatch = 0;
         sliceChanged.assign(final_centroid.size(), false);
         for(size_t kDiag = 0; kDiag < final_centroid.size(); ++kDiag) {
-          for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
-            const auto &oldie = oldMatchings[jCurve][kDiag];
-            const auto &newbie = matchedDiagrams[jCurve][kDiag];
-            size_t lOld = 0, lNew = 0;
-            while(lOld < oldie.size() && lNew < newbie.size()) {
-              if(oldie[lOld].first == newbie[lNew].first) {
-                if(oldie[lOld].second != newbie[lNew].second)
-                  std::cout << oldie[lOld] << " != " << newbie[lNew] << " from "
-                            << jCurve << " of slice " << kDiag << std::endl;
-                ++lOld;
-                ++lNew;
-              } else if(oldie[lOld].first < newbie[lNew].first) {
-                std::cout << "Removed " << oldie[lOld] << " from " << jCurve
-                          << " of slice " << kDiag << std::endl;
-                sliceChanged[kDiag] = true;
-                ++nbOfDifferentMatch;
-                ++lOld;
-              } else {
-                std::cout << "Added " << newbie[lNew] << " to " << jCurve
-                          << " of slice " << kDiag << std::endl;
-                sliceChanged[kDiag] = true;
-                ++nbOfDifferentMatch;
-                ++lNew;
-              }
-            }
-            while(lOld < oldie.size()) {
-              std::cout << "Removed " << oldie[lOld] << " from " << jCurve
-                        << " of slice " << kDiag << std::endl;
+          const auto &oldie = oldMatchGraph[offsetForCurve.back() + kDiag];
+          const auto &newbie = matchGraph[offsetForCurve.back() + kDiag];
+          size_t lOld = 0, lNew = 0;
+          while(lOld < oldie.size() && lNew < newbie.size()) {
+            if(std::get<0>(oldie[lOld]) == std::get<0>(newbie[lNew])
+               && std::get<1>(oldie[lOld]) == std::get<1>(newbie[lNew])) {
+              if(std::get<2>(oldie[lOld]) != std::get<2>(newbie[lNew]))
+                std::cout << oldie[lOld] << " != " << newbie[lNew]
+                          << " in slice " << kDiag << std::endl;
+              ++lOld;
+              ++lNew;
+            } else if(std::get<0>(oldie[lOld]) < std::get<0>(newbie[lNew])
+                      || (std::get<0>(oldie[lOld]) == std::get<0>(newbie[lNew])
+                          && std::get<1>(oldie[lOld])
+                               < std::get<1>(newbie[lNew]))) {
+              std::cout << "Removed " << oldie[lOld] << " from slice " << kDiag
+                        << std::endl;
               sliceChanged[kDiag] = true;
               ++nbOfDifferentMatch;
               ++lOld;
-            }
-            while(lNew < newbie.size()) {
-              std::cout << "Added " << newbie[lNew] << " to " << jCurve
-                        << " of slice " << kDiag << std::endl;
+            } else {
+              std::cout << "Added " << newbie[lNew] << " to slice " << kDiag
+                        << std::endl;
               sliceChanged[kDiag] = true;
               ++nbOfDifferentMatch;
               ++lNew;
             }
           }
+          while(lOld < oldie.size()) {
+            std::cout << "Removed " << oldie[lOld] << " from slice " << kDiag
+                      << std::endl;
+            sliceChanged[kDiag] = true;
+            ++nbOfDifferentMatch;
+            ++lOld;
+          }
+          while(lNew < newbie.size()) {
+            std::cout << "Added " << newbie[lNew] << " to slice " << kDiag
+                      << std::endl;
+            sliceChanged[kDiag] = true;
+            ++nbOfDifferentMatch;
+            ++lNew;
+          }
+
           if(sliceChanged[kDiag]) {
             ++nbOfDifferentSlices;
             double oldWeightOfSlice = 0., newWeightOfSlice = 0.;
-
-            for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
-              for(auto [kC, oW] : oldMatchings[jCurve][kDiag])
-                oldWeightOfSlice += oW;
-              for(auto [kC, nW] : matchedDiagrams[jCurve][kDiag])
-                newWeightOfSlice += nW;
-            }
+            for(auto [jC, lO, oW] : oldMatchGraph[kDiag])
+              oldWeightOfSlice += oW;
+            for(auto [jC, lO, nW] : matchGraph[kDiag])
+              newWeightOfSlice += nW;
             std::cout << "Slice " << kDiag << " changed from "
                       << oldWeightOfSlice << " to " << newWeightOfSlice
                       << std::endl;
@@ -239,31 +277,58 @@ namespace ttk {
         if(iIter == NumberOfIterations || nbOfDifferentSlices == 0)
           break;
         const int svg_DebugLevel = this->debugLevel_;
-        this->setDebugLevel(1);
+        // this->setDebugLevel(1);
 #ifdef TTK_ENABLE_OPENMP
-#pragma omp parallel for num_threads(threadNumber_)
+//#pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
         for(size_t kDiag = 0; kDiag < final_centroid.size(); ++kDiag) {
           if(!sliceChanged[kDiag])
             continue;
           std::vector<Diagram> slice;
           for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
-            for(auto [lOther, w] : matchedDiagrams[jCurve][kDiag])
-              slice.emplace_back(intermediateDiagramCurves[jCurve][lOther]);
+            if(UseTWED) {
+              for(auto [lOther, w] : matchedDiagrams[jCurve][kDiag]) {
+                std::cout << "Found " << lOther << " for " << jCurve << ","
+                          << kDiag << " in loop A" << std::endl;
+                if(lOther != -1) {
+                  // Need to emplace twice to optimize the real distance
+                  slice.emplace_back(intermediateDiagramCurves[jCurve][lOther]);
+                  slice.emplace_back(intermediateDiagramCurves[jCurve][lOther]);
+                } else
+                  slice.emplace_back(final_centroid[kDiag - 1]);
+              }
+              if(kDiag + 1 < final_centroid.size()) {
+                for(auto [lOther, w] : matchedDiagrams[jCurve][kDiag + 1]) {
+                  std::cout << "Found " << lOther << " for " << jCurve << ","
+                            << kDiag << " in loop B" << std::endl;
+                  if(lOther != -1) {
+                    // They matched on the following step, so we're also matched
+                    slice.emplace_back(
+                      intermediateDiagramCurves[jCurve][lOther - 1]);
+                    slice.emplace_back(
+                      intermediateDiagramCurves[jCurve][lOther - 1]);
+                  } else
+                    slice.emplace_back(final_centroid[kDiag + 1]);
+                }
+              }
+            } else
+              for(auto [lOther, w] : matchedDiagrams[jCurve][kDiag])
+                slice.emplace_back(intermediateDiagramCurves[jCurve][lOther]);
           }
 
+          std::cout << "Slice is now of length " << slice.size() << std::endl;
           std::vector<std::vector<std::vector<matchingTuple>>> temp_matchings;
           std::vector<Diagram> solo_centroid(1);
           this->execute<dataType>(slice, solo_centroid, temp_matchings);
           final_centroid[kDiag] = std::move(solo_centroid[0]);
           solo_centroid.clear();
-/* No need to copy for now, it's just an overhead
-          if(iIter >= NumberOfIterations - 1) {
-            all_matchings.reserve(all_matchings.size() + temp_matchings.size());
-            std::move(std::begin(temp_matchings), std::end(temp_matchings),
-                      std::back_inserter(all_matchings));
-            temp_matchings.clear();
-          } // */
+          /* No need to copy for now, it's just an overhead
+                    if(iIter >= NumberOfIterations - 1) {
+                      all_matchings.reserve(all_matchings.size() +
+             temp_matchings.size()); std::move(std::begin(temp_matchings),
+             std::end(temp_matchings), std::back_inserter(all_matchings));
+                      temp_matchings.clear();
+                    } // */
         }
         this->setDebugLevel(svg_DebugLevel);
         printMsg("Completed iteration with "

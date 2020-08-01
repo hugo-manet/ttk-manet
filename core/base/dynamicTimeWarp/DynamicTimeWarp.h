@@ -30,11 +30,15 @@ namespace ttk {
    * an optimal warping path for a given distance matrix
    */
   class DynamicTimeWarp : virtual public Debug {
-  protected:
+  public:
     double DeletionCost{1};
     int UseTWED{0};
+    /* We assume the distances are already given up to that power,
+     * and will output weights with that exponent. It's only used for the
+     * regularization in the Time Warp Edit Distance.
+     */
+    double MetricExponent{1.};
 
-  public:
     DynamicTimeWarp() {
       this->setDebugMsgPrefix("DynamicTimeWarp");
     };

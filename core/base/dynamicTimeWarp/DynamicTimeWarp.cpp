@@ -31,10 +31,13 @@ vector<tuple<DynamicTimeWarp::Direction, size_t, size_t, double>>
     double newCost = dynCostPath(iRowStart, jColStart);
     if(UseTWED) {
       if(dir == Direction::DIR_SAME_COL)
-        newCost += DeletionCost + curveCompressionCost[iRowStart + deltaRow];
-      else if(dir == Direction::DIR_SAME_ROW)
         newCost
-          += DeletionCost + curveCompressionCost[nRows + jColStart + deltaCol];
+          += DeletionCost
+             + curveCompressionCost[iRowStart + deltaRow] / MetricExponent;
+      else if(dir == Direction::DIR_SAME_ROW)
+        newCost += DeletionCost
+                   + curveCompressionCost[nRows + jColStart + deltaCol]
+                       / MetricExponent;
       else
         newCost += distanceMatrix(iRowStart + deltaRow, jColStart + deltaCol)
                    + distanceMatrix(iRowStart, jColStart);
