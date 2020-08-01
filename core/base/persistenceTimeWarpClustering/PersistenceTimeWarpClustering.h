@@ -226,37 +226,42 @@ namespace ttk {
             if(std::get<0>(oldie[lOld]) == std::get<0>(newbie[lNew])
                && std::get<1>(oldie[lOld]) == std::get<1>(newbie[lNew])) {
               if(std::get<2>(oldie[lOld]) != std::get<2>(newbie[lNew]))
-                std::cout << oldie[lOld] << " != " << newbie[lNew]
-                          << " in slice " << kDiag << std::endl;
+                if(this->debugLevel_ > 3)
+                  std::cout << oldie[lOld] << " != " << newbie[lNew]
+                            << " in slice " << kDiag << std::endl;
               ++lOld;
               ++lNew;
             } else if(std::get<0>(oldie[lOld]) < std::get<0>(newbie[lNew])
                       || (std::get<0>(oldie[lOld]) == std::get<0>(newbie[lNew])
                           && std::get<1>(oldie[lOld])
                                < std::get<1>(newbie[lNew]))) {
-              std::cout << "Removed " << oldie[lOld] << " from slice " << kDiag
-                        << std::endl;
+              if(this->debugLevel_ > 3)
+                std::cout << "Removed " << oldie[lOld] << " from slice "
+                          << kDiag << std::endl;
               sliceChanged[kDiag] = true;
               ++nbOfDifferentMatch;
               ++lOld;
             } else {
-              std::cout << "Added " << newbie[lNew] << " to slice " << kDiag
-                        << std::endl;
+              if(this->debugLevel_ > 3)
+                std::cout << "Added " << newbie[lNew] << " to slice " << kDiag
+                          << std::endl;
               sliceChanged[kDiag] = true;
               ++nbOfDifferentMatch;
               ++lNew;
             }
           }
           while(lOld < oldie.size()) {
-            std::cout << "Removed " << oldie[lOld] << " from slice " << kDiag
-                      << std::endl;
+            if(this->debugLevel_ > 3)
+              std::cout << "Removed " << oldie[lOld] << " from slice " << kDiag
+                        << std::endl;
             sliceChanged[kDiag] = true;
             ++nbOfDifferentMatch;
             ++lOld;
           }
           while(lNew < newbie.size()) {
-            std::cout << "Added " << newbie[lNew] << " to slice " << kDiag
-                      << std::endl;
+            if(this->debugLevel_ > 3)
+              std::cout << "Added " << newbie[lNew] << " to slice " << kDiag
+                        << std::endl;
             sliceChanged[kDiag] = true;
             ++nbOfDifferentMatch;
             ++lNew;
@@ -288,8 +293,9 @@ namespace ttk {
           for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
             if(UseTWED) {
               for(auto [lOther, w] : matchedDiagrams[jCurve][kDiag]) {
-                std::cout << "Found " << lOther << " for " << jCurve << ","
-                          << kDiag << " in loop A" << std::endl;
+                if(this->debugLevel_ > 3)
+                  std::cout << "Found " << lOther << " for " << jCurve << ","
+                            << kDiag << " in loop A" << std::endl;
                 if(lOther != -1) {
                   // Need to emplace twice to optimize the real distance
                   slice.emplace_back(intermediateDiagramCurves[jCurve][lOther]);
@@ -299,8 +305,9 @@ namespace ttk {
               }
               if(kDiag + 1 < final_centroid.size()) {
                 for(auto [lOther, w] : matchedDiagrams[jCurve][kDiag + 1]) {
-                  std::cout << "Found " << lOther << " for " << jCurve << ","
-                            << kDiag << " in loop B" << std::endl;
+                  if(this->debugLevel_ > 3)
+                    std::cout << "Found " << lOther << " for " << jCurve << ","
+                              << kDiag << " in loop B" << std::endl;
                   if(lOther != -1) {
                     // They matched on the following step, so we're also matched
                     slice.emplace_back(
@@ -316,7 +323,8 @@ namespace ttk {
                 slice.emplace_back(intermediateDiagramCurves[jCurve][lOther]);
           }
 
-          std::cout << "Slice is now of length " << slice.size() << std::endl;
+          if(this->debugLevel_ > 3)
+            std::cout << "Slice is now of length " << slice.size() << std::endl;
           std::vector<std::vector<std::vector<matchingTuple>>> temp_matchings;
           std::vector<Diagram> solo_centroid(1);
           this->execute<dataType>(slice, solo_centroid, temp_matchings);
