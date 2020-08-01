@@ -201,6 +201,10 @@ namespace ttk {
                     {-1, kDiagCentroid, w});
                   matchGraph[offsetForCurve.back() + kDiagCentroid].push_back(
                     {jCurve, lOther, w});
+                  matchGraph[offsetForCurve[jCurve] + lOther - 1].push_back(
+                    {-1, kDiagCentroid - 1, w});
+                  matchGraph[offsetForCurve.back() + kDiagCentroid - 1]
+                    .push_back({jCurve, lOther - 1, w});
                   break;
                 case DynamicTimeWarp::Direction::DIR_SAME_ROW:
                   matchGraph[offsetForCurve[jCurve] + lOther].push_back(
@@ -276,10 +280,18 @@ namespace ttk {
           if(sliceChanged[kDiag]) {
             ++nbOfDifferentSlices;
             double oldWeightOfSlice = 0., newWeightOfSlice = 0.;
-            for(auto [jC, lO, oW] : oldMatchGraph[kDiag])
+            for(auto [jC, lO, oW] : oldMatchGraph[kDiag]) {
               oldWeightOfSlice += oW;
-            for(auto [jC, lO, nW] : matchGraph[kDiag])
+              if(this->debugLevel_ > 3)
+                std::cout << "old (" << jC << ',' << lO << "," << oW << ")"
+                          << std::endl;
+            }
+            for(auto [jC, lO, nW] : matchGraph[kDiag]) {
               newWeightOfSlice += nW;
+              if(this->debugLevel_ > 3)
+                std::cout << "new (" << jC << ',' << lO << "," << nW << ")"
+                          << std::endl;
+            }
             std::cout << "Slice " << kDiag << " changed from "
                       << oldWeightOfSlice << " to " << newWeightOfSlice
                       << std::endl;
@@ -299,7 +311,7 @@ namespace ttk {
           for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
             if(UseTWED) {
               for(auto [lOther, w] : matchedDiagrams[jCurve][kDiag]) {
-                if(this->debugLevel_ > 3)
+                if(svg_DebugLevel > 3)
                   std::cout << "Found " << lOther << " for " << jCurve << ","
                             << kDiag << " in loop A" << std::endl;
                 if(lOther != -1) {
@@ -311,7 +323,7 @@ namespace ttk {
               }
               if(kDiag + 1 < final_centroid.size()) {
                 for(auto [lOther, w] : matchedDiagrams[jCurve][kDiag + 1]) {
-                  if(this->debugLevel_ > 3)
+                  if(svg_DebugLevel > 3)
                     std::cout << "Found " << lOther << " for " << jCurve << ","
                               << kDiag << " in loop B" << std::endl;
                   if(lOther != -1) {
@@ -329,7 +341,7 @@ namespace ttk {
                 slice.emplace_back(intermediateDiagramCurves[jCurve][lOther]);
           }
 
-          if(this->debugLevel_ > 3)
+          if(svg_DebugLevel > 3)
             std::cout << "Slice is now of length " << slice.size() << std::endl;
           std::vector<std::vector<std::vector<matchingTuple>>> temp_matchings;
           std::vector<Diagram> solo_centroid(1);
