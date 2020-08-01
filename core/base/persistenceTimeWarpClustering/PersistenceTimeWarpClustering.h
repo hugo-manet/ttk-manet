@@ -114,9 +114,11 @@ namespace ttk {
         std::vector<std::vector<std::tuple<int, int, double>>> oldMatchGraph(
           matchGraph.size());
         std::swap(oldMatchGraph, matchGraph);
+        for(auto &matchesForCurve : matchedDiagrams)
+          matchesForCurve.assign(final_centroid.size(), {});
 
 #ifdef TTK_ENABLE_OPENMP
-#pragma omp parallel for schedule(dynamic) num_threads(threadNumber_)
+//#pragma omp parallel for schedule(dynamic) num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
         for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
           Timer timerCurve;
@@ -175,9 +177,13 @@ namespace ttk {
             realDistMatrix[jCurve], curvilinearDist);
 
           double total_weight = realDistMatrix[jCurve](0, 0);
-          if(!UseTWED)
+          if(!UseTWED) {
             matchedDiagrams[jCurve][0].push_back(
               {0, realDistMatrix[jCurve](0, 0)});
+            matchGraph[offsetForCurve.back()].push_back(
+              {jCurve, 0, total_weight});
+            matchGraph[offsetForCurve[jCurve]].push_back({-1, 0, total_weight});
+          }
           for(const auto &[dir, kDiagCentroid, lOther, w] : path) {
             total_weight += w;
             if(UseTWED) {
