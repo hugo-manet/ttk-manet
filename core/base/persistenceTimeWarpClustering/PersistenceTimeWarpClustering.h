@@ -99,6 +99,7 @@ namespace ttk {
       offsetForCurve.back() + final_centroid.size());
     std::vector<std::vector<std::vector<std::pair<int, double>>>>
       matchedDiagrams(nCurves);
+    std::vector<double> totalEnergy;
     for(auto &matchesForCurve : matchedDiagrams)
       matchesForCurve.assign(final_centroid.size(), {});
     {
@@ -116,6 +117,7 @@ namespace ttk {
         std::swap(oldMatchGraph, matchGraph);
         for(auto &matchesForCurve : matchedDiagrams)
           matchesForCurve.assign(final_centroid.size(), {});
+        totalEnergy.push_back(0);
 
 #ifdef TTK_ENABLE_OPENMP
 //#pragma omp parallel for schedule(dynamic) num_threads(threadNumber_)
@@ -225,7 +227,11 @@ namespace ttk {
                      + std::to_string(jCurve) + ", distance from centroid "
                      + std::to_string(total_weight),
                    1, timerCurve.getElapsedTime(), threadNumber_);
+          totalEnergy.back() += total_weight;
         }
+        printMsg("Total energy for step " + std::to_string(iIter) + ": "
+                   + std::to_string(totalEnergy.back()),
+                 1, tm.getElapsedTime(), threadNumber_);
         size_t nbOfDifferentSlices = 0, nbOfDifferentMatch = 0;
         sliceChanged.assign(final_centroid.size(), false);
         for(size_t kDiag = 0; kDiag < final_centroid.size(); ++kDiag) {
@@ -369,6 +375,10 @@ namespace ttk {
 #endif // TTK_ENABLE_OPENMP
 
     printMsg("Completed all iterations", 1, tm.getElapsedTime(), threadNumber_);
+    std::cout << "Energy sequence : {";
+    for(size_t i = 0; i < totalEnergy.size(); ++i)
+      std::cout << ", " << i << ": " << totalEnergy[i];
+    std::cout << "}" << std::endl;
     time_warp.emplace_back(nCurves); // Only one cluster, all curves in
     for(size_t jCurve = 0; jCurve < nCurves; ++jCurve) {
       for(size_t kDiag = 0; kDiag < final_centroid.size(); ++kDiag) {
