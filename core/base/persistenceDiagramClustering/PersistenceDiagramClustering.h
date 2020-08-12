@@ -243,7 +243,9 @@ namespace ttk {
       unsigned int c = inv_clustering[i];
       // cout<<"CLUSTER : "<<inv_clustering[i]<<endl;
       // LARGEST PAIR MUST BE FIRST
-      if(do_max) {
+      if(do_max
+         && all_matchings_per_type_and_cluster[c][2][idxInCluster[i]].size()
+              > 0) {
         matchingTuple t
           = all_matchings_per_type_and_cluster[c][2][idxInCluster[i]][0];
         int bidder_id = std::get<0>(t);
