@@ -3,6 +3,7 @@
 #include <vtkCellData.h>
 #include <vtkDataArray.h>
 #include <vtkDataSet.h>
+#include <vtkDoubleArray.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
 #include <vtkTable.h>
