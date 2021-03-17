@@ -304,6 +304,7 @@ int ttkTrackingFromPersistenceDiagrams::buildMesh(
       timeScalars->InsertTuple1(ids[0], (double)numStart + c);
       persistenceScalars->InsertTuple1(ids[0], tuple1.persistence);
       componentIds->InsertTuple1(ids[0], k);
+      valueScalars->InsertTuple1(ids[0], startPoint.val);
 
       endPoint = extractRepresentingPoint(tuple2);
       if(useGeometricSpacing)
@@ -315,12 +316,11 @@ int ttkTrackingFromPersistenceDiagrams::buildMesh(
       timeScalars->InsertTuple1(ids[1], (double)numStart + c);
       persistenceScalars->InsertTuple1(ids[1], tuple2.persistence);
       componentIds->InsertTuple1(ids[1], k);
+      valueScalars->InsertTuple1(ids[1], endPoint.val);
 
       persistenceDiagram->InsertNextCell(VTK_LINE, 2, ids);
 
       costScalars->InsertTuple1(currentVertex, cost);
-      valueScalars->InsertTuple1(
-        currentVertex, barycenter(startPoint, endPoint).val);
       matchingIdScalars->InsertTuple1(currentVertex, currentVertex);
       lengthScalars->InsertTuple1(currentVertex, chainLength);
 
@@ -331,7 +331,7 @@ int ttkTrackingFromPersistenceDiagrams::buildMesh(
   persistenceDiagram->SetPoints(points);
   persistenceDiagram->GetCellData()->AddArray(costScalars);
   persistenceDiagram->GetPointData()->AddArray(persistenceScalars);
-  persistenceDiagram->GetCellData()->AddArray(valueScalars);
+  persistenceDiagram->GetPointData()->AddArray(valueScalars);
   persistenceDiagram->GetCellData()->AddArray(matchingIdScalars);
   persistenceDiagram->GetCellData()->AddArray(lengthScalars);
   persistenceDiagram->GetPointData()->AddArray(timeScalars);
