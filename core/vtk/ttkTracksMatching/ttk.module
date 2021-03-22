@@ -1,0 +1,9 @@
+NAME
+  ttkTracksMatching
+SOURCES
+  ttkTracksMatching.cpp
+HEADERS
+  ttkTracksMatching.h
+DEPENDS
+  tracksMatching
+  ttkAlgorithm

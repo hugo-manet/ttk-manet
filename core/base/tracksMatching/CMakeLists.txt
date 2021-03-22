@@ -1,0 +1,9 @@
+ttk_add_base_library(tracksMatching
+  SOURCES
+    TracksMatching.cpp
+  HEADERS
+    TracksMatching.h
+    fuzzyDistanceMatrix.h
+  DEPENDS
+    bottleneckDistance
+    )
