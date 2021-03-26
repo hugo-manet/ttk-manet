@@ -313,7 +313,7 @@ int ttkTrackingFromPersistenceDiagrams::buildMesh(
       points->InsertNextPoint(endPoint.x, endPoint.y, endPoint.z);
       ids[1] = 2 * currentVertex + 1;
       pointTypeScalars->InsertTuple1(ids[1], (double)(int)typeOfTuple(tuple2));
-      timeScalars->InsertTuple1(ids[1], (double)numStart + c);
+      timeScalars->InsertTuple1(ids[1], (double)numStart + c + 1);
       persistenceScalars->InsertTuple1(ids[1], tuple2.persistence);
       componentIds->InsertTuple1(ids[1], k);
       valueScalars->InsertTuple1(ids[1], endPoint.val);
