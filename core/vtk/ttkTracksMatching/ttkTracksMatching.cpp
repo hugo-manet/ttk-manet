@@ -168,6 +168,8 @@ int ttkTracksMatching::RequestData(vtkInformation *request,
   this->bidders = getTracksFromObject(inputTracksBidder);
   this->goods = getTracksFromObject(inputTracksGood);
 
+  this->run(this->PowerParameter, 1, 1, 1);
+
   // return success
   return 1;
 }

@@ -139,30 +139,23 @@ namespace ttk {
   }
 
   void TracksMatching::runMatching(double p) {
-    /** TODO :
-     *   - split by critical type
-     *   - use algos that optimize for unbalanced matchings
+    /** TODO : split by critical type instead of mixing
      */
     size_t nBid = bidders.size(), nGood = goods.size();
-    size_t totSize = nBid + nGood;
-    vector<vector<double>> costMatrixForBundle(totSize);
+    vector<vector<double>> costMatrixForBundle(nBid + 1);
     Munkres solver;
 
-    for(size_t iRow = 0; iRow < nBid - 1; ++iRow) {
-      for(size_t jCol = 0; jCol < nGood - 1; ++jCol)
-        costMatrixForBundle[iRow].push_back(distances(iRow, jCol).value);
-      double delCost = bidders[iRow].deletionCost(p);
-      for(size_t jDel = 0; jDel < nBid - 1; ++jDel)
-        costMatrixForBundle[iRow].push_back(delCost);
-      for(size_t iDel = nBid; iDel < totSize - 1; ++iDel)
-        costMatrixForBundle[iDel].push_back(delCost);
+    for(size_t iBid = 0; iBid < nBid; ++iBid) {
+      for(size_t jGood = 0; jGood < nGood; ++jGood)
+        costMatrixForBundle[iBid].push_back(distances(iBid, jGood).value);
+      costMatrixForBundle[iBid].push_back(bidders[iBid].deletionCost(p));
     }
-    for(size_t iDel = nBid; iDel < totSize - 1; ++iDel)
-      for(size_t jDel = nGood; jDel < totSize - 1; ++jDel)
-        costMatrixForBundle[iDel].push_back(0.);
+    for(size_t jGood = 0; jGood < nGood; ++jGood)
+      costMatrixForBundle[nBid].push_back(goods[jGood].deletionCost(p));
+    costMatrixForBundle[nBid][nGood] = std::numeric_limits<double>::max();
 
     vector<matchingTuple> solverOutput;
-    solver.setInput(totSize, totSize, (void *)&costMatrixForBundle);
+    solver.setInput(nBid + 1, nGood + 1, (void *)&costMatrixForBundle);
     solver.run(solverOutput);
 
     matchedTracks.clear();
