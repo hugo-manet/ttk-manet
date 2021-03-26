@@ -1,9 +1,14 @@
+#include <map>
+
+#include "DataTypes.h"
+#include "TracksMatching.h"
 #include <ttkTracksMatching.h>
 
 #include <vtkInformation.h>
 
 #include <vtkDataArray.h>
 #include <vtkDataSet.h>
+#include <vtkDoubleArray.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
 
@@ -28,7 +33,7 @@ vtkStandardNewMacro(ttkTracksMatching);
  * to be freed when the filter is destroyed.
  */
 ttkTracksMatching::ttkTracksMatching() {
-  this->SetNumberOfInputPorts(1);
+  this->SetNumberOfInputPorts(2);
   this->SetNumberOfOutputPorts(1);
 }
 
@@ -75,19 +80,73 @@ int ttkTracksMatching::FillOutputPortInformation(int port,
   return 0;
 }
 
-/**
- * TODO 10: Pass VTK data to the base code and convert base code output to VTK
- *
- * This method is called during the pipeline execution to update the
- * already initialized output data objects based on the given input
- * data objects and filter parameters.
- *
- * Note:
- *     1) The passed input data objects are validated based on the information
- *        provided by the FillInputPortInformation method.
- *     2) The output objects are already initialized based on the information
- *        provided by the FillOutputPortInformation method.
- */
+std::vector<ttk::TracksMatching::Track>
+  getTracksFromObject(vtkUnstructuredGrid *obj) {
+  using Track = ttk::TracksMatching::Track;
+  using TimedPoint = ttk::TracksMatching::TimedPoint;
+  std::vector<Track> ret;
+  /** doesn't exist ?
+  ttkSimplexIdTypeArray *vertexIdentifierScalars
+    = ttkSimplexIdTypeArray::SafeDownCast(
+      obj->GetPointData()->GetArray(ttk::VertexScalarFieldName));
+  // */
+  vtkIntArray *trackIdScalars = vtkIntArray::SafeDownCast(
+    obj->GetPointData()->GetArray("ConnectedComponentId"));
+
+  vtkDoubleArray *persistenceScalars = vtkDoubleArray::SafeDownCast(
+    obj->GetPointData()->GetArray("Persistence"));
+
+  vtkIntArray *timeStepScalars
+    = vtkIntArray::SafeDownCast(obj->GetPointData()->GetArray("TimeStep"));
+
+  vtkDoubleArray *valueScalars
+    = vtkDoubleArray::SafeDownCast(obj->GetPointData()->GetArray("Scalar"));
+
+  vtkIntArray *criticalTypeScalars
+    = vtkIntArray::SafeDownCast(obj->GetPointData()->GetArray("CriticalType"));
+
+  if(!trackIdScalars || !persistenceScalars || !timeStepScalars || !valueScalars
+     || !criticalTypeScalars)
+    throw "No something";
+
+  vtkPoints *points = obj->GetPoints();
+  size_t nbOfPoints = obj->GetNumberOfPoints();
+
+  if(nbOfPoints == 0)
+    throw 0;
+
+  auto pointFromIndex = [&](size_t i) -> TimedPoint {
+    return TimedPoint(timeStepScalars->GetValue(i), valueScalars->GetValue(i),
+                      points->GetPoint(i)[0], points->GetPoint(i)[1],
+                      points->GetPoint(i)[2], persistenceScalars->GetValue(i));
+  };
+  std::map<int, int> trackId; // Tracks could be filtered by user
+  int nextTrackId = 0;
+  for(size_t i = 0; i < nbOfPoints; ++i) {
+    int tID = trackIdScalars->GetValue(i);
+    if(trackId.find(tID) == trackId.end()) {
+      trackId[tID] = nextTrackId++;
+      ret.push_back(Track());
+      ret.back().trackType
+        = (ttk::CriticalType)criticalTypeScalars->GetValue(i);
+    }
+    ret[trackId[tID]].push_back(pointFromIndex(i));
+  }
+  for(auto &track : ret) {
+    std::sort(track.begin(), track.end(), [](TimedPoint &tA, TimedPoint &tB) {
+      return tA.timeStep < tB.timeStep;
+    });
+    // remove duplicate from tracks
+    size_t iWriten = 0;
+    for(size_t iRead = 1; iRead < track.size(); ++iRead)
+      if(track[iRead].timeStep != track[iWriten].timeStep)
+        track[++iWriten] = track[iRead];
+    track.erase(track.begin() + iWriten + 1, track.end());
+  }
+
+  return ret;
+}
+
 int ttkTracksMatching::RequestData(vtkInformation *request,
                                    vtkInformationVector **inputVector,
                                    vtkInformationVector *outputVector) {
@@ -105,6 +164,9 @@ int ttkTracksMatching::RequestData(vtkInformation *request,
   // Get output vtkDataSet (which was already instantiated based on the
   // information provided by FillOutputPortInformation)
   vtkDataSet *outputDataSet = vtkUnstructuredGrid::GetData(outputVector, 0);
+
+  this->bidders = getTracksFromObject(inputTracksBidder);
+  this->goods = getTracksFromObject(inputTracksGood);
 
   // return success
   return 1;

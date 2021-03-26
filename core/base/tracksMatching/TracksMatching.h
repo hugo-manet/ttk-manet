@@ -46,17 +46,15 @@ namespace ttk {
       double persistence;
     };
     struct Track : public std::vector<TimedPoint> {
-      // = TWED_p cost of deletion, TWED_p matching to the same with persistence
-      // 0
+      // = TWED_p cost of deletion: almost TWED_p to the same with pers := 0
       inline double deletionCost(double p) const {
         double ret = 0.;
-        for(auto tp : trackPoints) {
-          ret += std::pow(tp.persistence, p);
-        }
+        for(size_t i = 0; i < this->size(); ++i)
+          ret += std::pow((*this)[i].persistence, p)
+                 * (i != 0 && i != this->size() - 1 ? 2. : 1.);
         return std::pow(ret, 1. / p);
       }
       ttk::CriticalType trackType;
-      std::vector<TimedPoint> trackPoints;
     };
 
     struct TWED {
@@ -95,6 +93,14 @@ namespace ttk {
                           double timeNormalization,
                           double geometricalLifting);
     void runMatching(double p);
+    inline std::vector<std::pair<int, int>> run(double p,
+                                                double lambda_p,
+                                                double timeNormalization,
+                                                double geometricalLifting) {
+      computeDistances(p, lambda_p, timeNormalization, geometricalLifting);
+      runMatching(p);
+      return matchedTracks;
+    }
   }; // TracksMatching class
 
   template <typename... Args>

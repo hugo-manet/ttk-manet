@@ -79,15 +79,15 @@ private:
    * TODO 5: Add all filter parameters only as private member variables and
    *         initialize them here.
    */
+  double PowerParameter{2.};
 
 public:
   /**
    * TODO 6: Automatically generate getters and setters of filter
    *         parameters via vtkMacros.
-   *
-  vtkSetMacro(OutputArrayName, std::string);
-  vtkGetMacro(OutputArrayName, std::string);
    */
+  vtkSetMacro(PowerParameter, double);
+  vtkGetMacro(PowerParameter, double);
 
   /**
    * This static method and the macro below are VTK conventions on how to

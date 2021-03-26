@@ -14,7 +14,7 @@
            </Documentation>
 
             <!-- INPUT -->
-               <InputProperty name="Input" command="SetInputConnection">
+               <InputProperty name="Input1" port_index="0" label="Tracking 1" command="SetInputConnection">
                     <ProxyGroupDomain name="groups">
                         <Group name="sources" />
                         <Group name="filters" />
@@ -22,11 +22,9 @@
                     <DataTypeDomain name="input_type">
                         <DataType value="vtkUnstructuredGrid" />
                     </DataTypeDomain>
-                    <InputArrayDomain name="input_array" attribute_type="point"
-                              number_of_components="1" />
                     <Documentation>A set of tracks, typically output by TTK TrackingFromFields</Documentation>
                 </InputProperty>
-                <InputProperty name="Input" command="SetInputConnection">
+                <InputProperty name="Input2" port_index="1" label="Tracking 2" command="SetInputConnection">
                     <ProxyGroupDomain name="groups">
                         <Group name="sources" />
                         <Group name="filters" />
@@ -34,12 +32,10 @@
                     <DataTypeDomain name="input_type">
                         <DataType value="vtkUnstructuredGrid" />
                     </DataTypeDomain>
-                    <InputArrayDomain name="input_array" attribute_type="point"
-                              number_of_components="1" />
                     <Documentation>A set of tracks, typically output by TTK TrackingFromFields</Documentation>
                 </InputProperty>
 
-            <!-- INPUT PARAMETER WIDGETS -->
+                <!-- INPUT PARAMETER WIDGETS -->
 
                 <!-- Create a UI group that contains all input parameter widgets (here only one) -->
                 <PropertyGroup panel_widget="Line" label="Input Options">
@@ -49,7 +45,19 @@
 
 
                 <!-- Create a UI group that contains all output parameter widgets (here only one) -->
+                <DoubleVectorProperty
+                  name="PowerParameter"
+                  command="SetPowerParameter"
+                  label="Power parameter"
+                  number_of_elements="1"
+                  default_values="2">
+                  <Documentation>
+                    Power of the TWED and Wasserstein and Minkowski distances
+                  </Documentation>
+                  <DoubleRangeDomain name="range" min="1" max="8" />
+                </DoubleVectorProperty>
                 <PropertyGroup panel_widget="Line" label="Output Options">
+                  <Property name="PowerParameter" />
                 </PropertyGroup>
 
             <!-- DEBUG -->

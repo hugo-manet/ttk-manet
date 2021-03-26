@@ -2,6 +2,7 @@
 #include <BottleneckDistance.h>
 #include <TracksMatching.h>
 #include <cstddef>
+#include <limits>
 
 namespace ttk {
   using namespace std;
@@ -55,6 +56,10 @@ namespace ttk {
                              double tN,
                              double gL)
     : bidderTrack(bidderTrack_), goodTrack(goodTrack_) {
+    if(bidderTrack->trackType != goodTrack->trackType) {
+      this->value = std::numeric_limits<double>::infinity();
+      return;
+    }
     auto mat_p = getMatrixPow(*bidderTrack, *goodTrack, p, tN, gL);
     auto curvRow_p = getCurvilinearDistPow(*bidderTrack, p, tN, gL);
     auto curvCol_p = getCurvilinearDistPow(*goodTrack, p, tN, gL);
@@ -66,7 +71,7 @@ namespace ttk {
     enum Direction { MATCH, DELROW, DELCOL, UNKNOWN };
     TMatrix<Direction> chosenDir(nRows, nCols, UNKNOWN);
 
-    dyn(0, 0) = mat_p(0, 0) + mat_p(nRows - 1, nCols - 1);
+    dyn(0, 0) = 0.;
     auto propagateTo = [&](size_t iRowStart, size_t jColStart, size_t deltaRow,
                            size_t deltaCol, Direction dir) {
       double newCost = dyn(iRowStart, jColStart);
@@ -134,6 +139,10 @@ namespace ttk {
   }
 
   void TracksMatching::runMatching(double p) {
+    /** TODO :
+     *   - split by critical type
+     *   - use algos that optimize for unbalanced matchings
+     */
     size_t nBid = bidders.size(), nGood = goods.size();
     size_t totSize = nBid + nGood;
     vector<vector<double>> costMatrixForBundle(totSize);
