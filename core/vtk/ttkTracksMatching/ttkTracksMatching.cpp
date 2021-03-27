@@ -117,9 +117,11 @@ std::vector<ttk::TracksMatching::Track>
 
   auto pointFromIndex = [&](size_t i) -> TimedPoint {
     double timeStep = timeStepScalars->GetValue(i);
-    double realZ = (ZTranslation < 0)
-                     ? 0
-                     : points->GetPoint(i)[2] - ZTranslation * timeStep;
+    double realZ = points->GetPoint(i)[2];
+    if(ZTranslation < 0 && timeStep != 0.)
+      ZTranslation = realZ / timeStep;
+    realZ -= ZTranslation * timeStep;
+
     return TimedPoint(timeStep, valueScalars->GetValue(i),
                       points->GetPoint(i)[0], points->GetPoint(i)[1], realZ,
                       persistenceScalars->GetValue(i));

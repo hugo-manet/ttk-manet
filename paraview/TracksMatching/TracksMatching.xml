@@ -45,7 +45,7 @@
                   number_of_elements="1"
                   default_values="0">
                   <Documentation>
-                    Z-translation in the tracks. Set to -1 to ignore z coords.
+                    Z-translation in the tracks. Set to -1 to find (if linear).
                   </Documentation>
                   <DoubleRangeDomain name="range" min="-1" max="100" />
                 </DoubleVectorProperty>
