@@ -38,13 +38,24 @@
                 <!-- INPUT PARAMETER WIDGETS -->
 
                 <!-- Create a UI group that contains all input parameter widgets (here only one) -->
+                <DoubleVectorProperty
+                  name="ZTranslation"
+                  command="SetZTranslation"
+                  label="Z-Translation"
+                  number_of_elements="1"
+                  default_values="0">
+                  <Documentation>
+                    Z-translation in the tracks. Set to -1 to ignore z coords.
+                  </Documentation>
+                  <DoubleRangeDomain name="range" min="-1" max="100" />
+                </DoubleVectorProperty>
                 <PropertyGroup panel_widget="Line" label="Input Options">
+                  <Property name="ZTranslation" />
                 </PropertyGroup>
 
-            <!-- OUTPUT PARAMETER WIDGETS -->
 
+            <!-- ALGORITHM PARAMETER WIDGETS -->
 
-                <!-- Create a UI group that contains all output parameter widgets (here only one) -->
                 <DoubleVectorProperty
                   name="PowerParameter"
                   command="SetPowerParameter"
@@ -55,9 +66,15 @@
                     Power of the TWED and Wasserstein and Minkowski distances
                   </Documentation>
                   <DoubleRangeDomain name="range" min="1" max="8" />
-                </DoubleVectorProperty>
-                <PropertyGroup panel_widget="Line" label="Output Options">
+                  </DoubleVectorProperty>
+                <PropertyGroup panel_widget="Line" label="Algorithm Options">
                   <Property name="PowerParameter" />
+                </PropertyGroup>
+
+            <!-- OUTPUT PARAMETER WIDGETS -->
+
+                <!-- Create a UI group that contains all output parameter widgets (here only one) -->
+                <PropertyGroup panel_widget="Line" label="Output Options">
                 </PropertyGroup>
 
             <!-- DEBUG -->

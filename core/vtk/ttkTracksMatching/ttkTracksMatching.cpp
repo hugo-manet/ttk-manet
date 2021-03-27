@@ -81,7 +81,7 @@ int ttkTracksMatching::FillOutputPortInformation(int port,
 }
 
 std::vector<ttk::TracksMatching::Track>
-  getTracksFromObject(vtkUnstructuredGrid *obj) {
+  ttkTracksMatching::getTracksFromObject(vtkUnstructuredGrid *obj) {
   using Track = ttk::TracksMatching::Track;
   using TimedPoint = ttk::TracksMatching::TimedPoint;
   std::vector<Track> ret;
@@ -116,9 +116,13 @@ std::vector<ttk::TracksMatching::Track>
     throw 0;
 
   auto pointFromIndex = [&](size_t i) -> TimedPoint {
-    return TimedPoint(timeStepScalars->GetValue(i), valueScalars->GetValue(i),
-                      points->GetPoint(i)[0], points->GetPoint(i)[1],
-                      points->GetPoint(i)[2], persistenceScalars->GetValue(i));
+    double timeStep = timeStepScalars->GetValue(i);
+    double realZ = (ZTranslation < 0)
+                     ? 0
+                     : points->GetPoint(i)[2] - ZTranslation * timeStep;
+    return TimedPoint(timeStep, valueScalars->GetValue(i),
+                      points->GetPoint(i)[0], points->GetPoint(i)[1], realZ,
+                      persistenceScalars->GetValue(i));
   };
   std::map<int, int> trackId; // Tracks could be filtered by user
   int nextTrackId = 0;

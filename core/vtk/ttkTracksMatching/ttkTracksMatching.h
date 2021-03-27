@@ -43,6 +43,7 @@
 
 // VTK Includes
 #include <ttkAlgorithm.h>
+#include <vtkUnstructuredGrid.h>
 
 /* Note on including VTK modules
  *
@@ -79,6 +80,7 @@ private:
    * TODO 5: Add all filter parameters only as private member variables and
    *         initialize them here.
    */
+  double ZTranslation{0};
   double PowerParameter{2.};
 
 public:
@@ -86,6 +88,8 @@ public:
    * TODO 6: Automatically generate getters and setters of filter
    *         parameters via vtkMacros.
    */
+  vtkSetMacro(ZTranslation, double);
+  vtkGetMacro(ZTranslation, double);
   vtkSetMacro(PowerParameter, double);
   vtkGetMacro(PowerParameter, double);
 
@@ -123,4 +127,6 @@ protected:
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
                   vtkInformationVector *outputVector) override;
+
+  std::vector<Track> getTracksFromObject(vtkUnstructuredGrid *obj);
 };
