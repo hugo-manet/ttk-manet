@@ -82,6 +82,10 @@ private:
    */
   double ZTranslation{0};
   double PowerParameter{2.};
+  double LambdaParameter{1.};
+  double TimeNormalization{1.};
+  double GeometricalLifting{1.};
+  double DisplayOffset{0.};
 
 public:
   /**
@@ -92,6 +96,14 @@ public:
   vtkGetMacro(ZTranslation, double);
   vtkSetMacro(PowerParameter, double);
   vtkGetMacro(PowerParameter, double);
+  vtkSetMacro(LambdaParameter, double);
+  vtkGetMacro(LambdaParameter, double);
+  vtkSetMacro(TimeNormalization, double);
+  vtkGetMacro(TimeNormalization, double);
+  vtkSetMacro(GeometricalLifting, double);
+  vtkGetMacro(GeometricalLifting, double);
+  vtkSetMacro(DisplayOffset, double);
+  vtkGetMacro(DisplayOffset, double);
 
   /**
    * This static method and the macro below are VTK conventions on how to

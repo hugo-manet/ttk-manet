@@ -45,9 +45,9 @@
                   number_of_elements="1"
                   default_values="0">
                   <Documentation>
-                    Z-translation in the tracks. Set to -1 to find (if linear).
+                    Z-translation in the tracks. Set to -1 to guess (if linear).
                   </Documentation>
-                  <DoubleRangeDomain name="range" min="-1" max="100" />
+                  <DoubleRangeDomain name="range" min="-1" max="10" />
                 </DoubleVectorProperty>
                 <PropertyGroup panel_widget="Line" label="Input Options">
                   <Property name="ZTranslation" />
@@ -66,15 +66,64 @@
                     Power of the TWED and Wasserstein and Minkowski distances
                   </Documentation>
                   <DoubleRangeDomain name="range" min="1" max="8" />
-                  </DoubleVectorProperty>
+                </DoubleVectorProperty>
+                <DoubleVectorProperty
+                  name="LambdaParameter"
+                  command="SetLambdaParameter"
+                  label="Lambda parameter"
+                  number_of_elements="1"
+                  default_values="1">
+                  <Documentation>
+                    Lambda of the TWED distances
+                  </Documentation>
+                  <DoubleRangeDomain name="range" min="0" max="10" />
+                </DoubleVectorProperty>
+                <DoubleVectorProperty
+                  name="TimeNormalization"
+                  command="SetTimeNormalization"
+                  label="Time normalization"
+                  number_of_elements="1"
+                  default_values="1">
+                  <Documentation>
+                    Time normalization of the TWED.
+                    Use timestep as a coordinate, with this coefficient
+                  </Documentation>
+                  <DoubleRangeDomain name="range" min="0" max="10" />
+                </DoubleVectorProperty>
+                <DoubleVectorProperty
+                  name="GeometricalLifting"
+                  command="SetGeometricalLifting"
+                  label="Geometrical lifting"
+                  number_of_elements="1"
+                  default_values="1">
+                  <Documentation>
+                    Geometrical lifting of the TWED.
+                  </Documentation>
+                <DoubleRangeDomain name="range" min="0" max="10" />
+                </DoubleVectorProperty>
                 <PropertyGroup panel_widget="Line" label="Algorithm Options">
                   <Property name="PowerParameter" />
+                  <Property name="LambdaParameter" />
+                  <Property name="TimeNormalization" />
+                  <Property name="GeometricalLifting" />
                 </PropertyGroup>
 
             <!-- OUTPUT PARAMETER WIDGETS -->
 
                 <!-- Create a UI group that contains all output parameter widgets (here only one) -->
+                <DoubleVectorProperty
+                  name="DisplayOffset"
+                  command="SetDisplayOffset"
+                  label="Display Offset"
+                  number_of_elements="1"
+                  default_values="0">
+                  <Documentation>
+                    Offset on Y for displaying both datasets
+                  </Documentation>
+                  <DoubleRangeDomain name="range" min="-10" max="10" />
+                  </DoubleVectorProperty>
                 <PropertyGroup panel_widget="Line" label="Output Options">
+                  <Property name="DisplayOffset" />
                 </PropertyGroup>
 
             <!-- DEBUG -->

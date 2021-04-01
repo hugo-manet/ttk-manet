@@ -6,6 +6,7 @@
 
 #include <vtkInformation.h>
 
+#include <vtkCellData.h>
 #include <vtkDataArray.h>
 #include <vtkDataSet.h>
 #include <vtkDoubleArray.h>
@@ -169,12 +170,113 @@ int ttkTracksMatching::RequestData(vtkInformation *request,
 
   // Get output vtkDataSet (which was already instantiated based on the
   // information provided by FillOutputPortInformation)
-  vtkDataSet *outputDataSet = vtkUnstructuredGrid::GetData(outputVector, 0);
+  auto outputDataSet = vtkUnstructuredGrid::GetData(outputVector, 0);
+  outputDataSet->AllocateEstimate(
+    inputTracksBidder->GetNumberOfCells() + inputTracksGood->GetNumberOfCells(),
+    2);
+  auto outputPoints = vtkSmartPointer<vtkPoints>::New();
+  outputDataSet->SetPoints(outputPoints);
+  vtkIdType nbPoints = 0;
 
   this->bidders = getTracksFromObject(inputTracksBidder);
   this->goods = getTracksFromObject(inputTracksGood);
 
-  this->run(this->PowerParameter, 1, 1, 1);
+  const double p = this->PowerParameter;
+  const double lambda_p = std::pow(this->LambdaParameter, p);
+  const double phi_p = std::pow(0.5, p - 1.);
+  const double tN = 1.;
+  const double gL = 1.;
+  this->run(this->PowerParameter, lambda_p, tN, gL);
+
+  auto deletionTypeOutputArray = vtkSmartPointer<vtkIntArray>::New();
+  enum deletionType { MATCHED, COMPRESSED, DELETED };
+  deletionTypeOutputArray->SetName("DeletionType");
+  outputDataSet->GetCellData()->AddArray(deletionTypeOutputArray);
+  auto localCostOutputArray = vtkSmartPointer<vtkDoubleArray>::New();
+  localCostOutputArray->SetName("LocalCost");
+  outputDataSet->GetCellData()->AddArray(localCostOutputArray);
+  auto trackCostOutputArray = vtkSmartPointer<vtkDoubleArray>::New();
+  trackCostOutputArray->SetName("TrackCost");
+  outputDataSet->GetCellData()->AddArray(trackCostOutputArray);
+
+  auto insertPoint = [&](TimedPoint pt, ttk::CriticalType ct, bool offset) {
+    outputPoints->InsertNextPoint(pt.x, pt.y + offset * this->DisplayOffset,
+                                  pt.z + pt.timeStep * this->ZTranslation);
+
+    ++nbPoints;
+  };
+
+  auto addTrackDeleteToOutput = [&](const Track &track, bool offset) {
+    if(track.empty())
+      return;
+    insertPoint(track[0], track.trackType, offset);
+    double trackDelCost = track.deletionCost(p);
+    for(size_t iPt = 1; iPt < track.size(); ++iPt) {
+      insertPoint(track[iPt], track.trackType, offset);
+      vtkIdType deletedTrackSegment[2] = {nbPoints - 2, nbPoints - 1};
+
+      outputDataSet->InsertNextCell(VTK_LINE, 2, deletedTrackSegment);
+      deletionTypeOutputArray->InsertNextValue(DELETED);
+      localCostOutputArray->InsertNextValue(std::pow(
+        ttk::sumPow(p, track[iPt - 1].persistence, track[iPt].persistence),
+        1. / p));
+      trackCostOutputArray->InsertNextValue(trackDelCost);
+    }
+    return;
+  };
+
+  auto addTrackMatchToOutput = [&](TWED &match) {
+    ttk::CriticalType trackType = match.bidderTrack->trackType;
+    vtkIdType iPtBid = nbPoints;
+    for(auto &pt : *match.bidderTrack)
+      insertPoint(pt, trackType, false);
+    vtkIdType jPtGood = nbPoints;
+    for(auto &pt : *match.goodTrack)
+      insertPoint(pt, trackType, true);
+
+    auto localDelCost = [&](Track &track, size_t i) {
+      return std::pow(
+        lambda_p + phi_p * ttk::distPow(track[i], track[i + 1], p, tN, gL),
+        1. / p);
+    };
+    for(auto [iB, jG] : match.matchedSegments)
+      if(iB == -1) {
+        vtkIdType compressedTrackSegment[2] = {jPtGood + jG, jPtGood + jG + 1};
+        outputDataSet->InsertNextCell(VTK_LINE, 2, compressedTrackSegment);
+        deletionTypeOutputArray->InsertNextValue(COMPRESSED);
+        localCostOutputArray->InsertNextValue(
+          localDelCost(*match.goodTrack, jG));
+        trackCostOutputArray->InsertNextValue(match.value);
+      } else if(jG == -1) {
+        vtkIdType compressedTrackSegment[2] = {iPtBid + iB, iPtBid + iB + 1};
+        outputDataSet->InsertNextCell(VTK_LINE, 2, compressedTrackSegment);
+        deletionTypeOutputArray->InsertNextValue(COMPRESSED);
+        localCostOutputArray->InsertNextValue(
+          localDelCost(*match.bidderTrack, iB));
+        trackCostOutputArray->InsertNextValue(match.value);
+      } else {
+        vtkIdType matchedTrackSegment[4]
+          = {iPtBid + iB, iPtBid + iB + 1, jPtGood + jG + 1, jPtGood + jG};
+        outputDataSet->InsertNextCell(VTK_QUAD, 4, matchedTrackSegment);
+        deletionTypeOutputArray->InsertNextValue(MATCHED);
+        localCostOutputArray->InsertNextValue(
+          std::pow(ttk::distPow((*match.bidderTrack)[iB],
+                                (*match.goodTrack)[jG], p, tN, gL)
+                     + ttk::distPow((*match.bidderTrack)[iB + 1],
+                                    (*match.goodTrack)[jG + 1], p, tN, gL),
+                   1. / p));
+        trackCostOutputArray->InsertNextValue(match.value);
+      }
+  };
+
+  for(auto [iB, jG] : matchedTracks) {
+    if(iB == -1)
+      addTrackDeleteToOutput(goods[jG], true);
+    else if(jG == -1)
+      addTrackDeleteToOutput(bidders[iB], false);
+    else
+      addTrackMatchToOutput(distances(iB, jG));
+  }
 
   // return success
   return 1;
