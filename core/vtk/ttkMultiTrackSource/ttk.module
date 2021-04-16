@@ -1,0 +1,9 @@
+NAME
+  ttkMultiTrackSource
+SOURCES
+  ttkMultiTrackSource.cpp
+HEADERS
+  ttkMultiTrackSource.h
+DEPENDS
+  multiTrackSource
+  ttkAlgorithm

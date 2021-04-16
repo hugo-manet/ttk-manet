@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServerManagerConfiguration>
+    <ProxyGroup name="sources">
+        <SourceProxy name="ttkMultiTrackSource" class="ttkMultiTrackSource" label="TTK MultiTrackSource">
+            <Documentation long_help="TTK filter that creates an MultiTrackSource" short_help="TTK filter that creates an MultiTrackSource">
+                This filter creates a MultiTrackSource with specified number of locations, number of spikes, and various characteristics.
+            </Documentation>
+
+            <IntVectorProperty name="NumberOfLocations" label="Locations" command="SetNumberOfLocations" number_of_elements="1" default_values="3">
+                <Documentation>Number of locations.</Documentation>
+            </IntVectorProperty>
+            <IntVectorProperty name="NbTrackPerLocation" label="Tracks/Loc" command="SetNbTrackPerLocation" number_of_elements="1" default_values="2">
+                <Documentation>Number of tracks per location.</Documentation>
+            </IntVectorProperty>
+            <DoubleVectorProperty name="Radius" label="Radius" command="SetRadius" number_of_elements="1" default_values="1">
+                <Documentation>Radius of locations.</Documentation>
+            </DoubleVectorProperty>
+            <DoubleVectorProperty name="StdDev" label="Standard Deviation" command="SetStdDev" number_of_elements="1" default_values=".25">
+                <Documentation>Standard deviation of the coordinates (before smoothing).</Documentation>
+            </DoubleVectorProperty>
+            <IntVectorProperty name="NbSmooth" label="Smoothing number" command="SetNbSmooth" number_of_elements="1" default_values="3">
+                <Documentation>Number of smoothing operations on coordinates (lowers the std dev).</Documentation>
+            </IntVectorProperty>
+
+            <IntVectorProperty name="TotalLength" label="TotalLength" command="SetTotalLength" number_of_elements="1" default_values="20">
+                <Documentation>Base length. Length is (MinLength + P(lambda-MinLength)).</Documentation>
+            </IntVectorProperty>
+            <IntVectorProperty name="MinimumLength" label="MinLength" command="SetMinLength" number_of_elements="1" default_values="3">
+                <Documentation>Base length. Length is (MinLength + P(lambda-MinLength)).</Documentation>
+            </IntVectorProperty>
+            <DoubleVectorProperty name="MassPortion" label="MassPortion" command="SetMassPortion" number_of_elements="1" default_values=".5">
+                <Documentation>Portion of the time part of the tracks.</Documentation>
+            </DoubleVectorProperty>
+
+            <PropertyGroup panel_widget="Line" label="Generation Options">
+                <Property name="NumberOfLocations" />
+                <Property name="NbTrackPerLocation" />
+                <Property name="Radius" />
+                <Property name="StdDev" />
+                <Property name="NbSmooth" />
+                <Property name="TotalLength" />
+                <Property name="MinimumLength" />
+                <Property name="MassPortion" />
+            </PropertyGroup>
+
+            ${DEBUG_WIDGETS}
+
+            <Hints>
+                <ShowInMenu category="TTK" />
+            </Hints>
+        </SourceProxy>
+    </ProxyGroup>
+</ServerManagerConfiguration>
