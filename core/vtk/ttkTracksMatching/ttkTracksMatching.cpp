@@ -2,6 +2,7 @@
 
 #include "DataTypes.h"
 #include "TracksMatching.h"
+#include <sstream>
 #include <ttkTracksMatching.h>
 
 #include <vtkInformation.h>
@@ -184,8 +185,8 @@ int ttkTracksMatching::RequestData(vtkInformation *request,
   const double p = this->PowerParameter;
   const double lambda_p = std::pow(this->LambdaParameter, p);
   const double phi_p = std::pow(0.5, p - 1.);
-  const double tN = 1.;
-  const double gL = 1.;
+  const double tN = TimeNormalization;
+  const double gL = GeometricalLifting;
   this->run(this->PowerParameter, lambda_p, tN, gL);
 
   auto deletionTypeOutputArray = vtkSmartPointer<vtkIntArray>::New();
@@ -208,7 +209,7 @@ int ttkTracksMatching::RequestData(vtkInformation *request,
 
   auto addTrackDeleteToOutput = [&](const Track &track, bool offset) {
     if(track.empty())
-      return;
+      return 0.;
     insertPoint(track[0], track.trackType, offset);
     double trackDelCost = track.deletionCost(p);
     for(size_t iPt = 1; iPt < track.size(); ++iPt) {
@@ -222,7 +223,7 @@ int ttkTracksMatching::RequestData(vtkInformation *request,
         1. / p));
       trackCostOutputArray->InsertNextValue(trackDelCost);
     }
-    return;
+    return trackDelCost;
   };
 
   auto addTrackMatchToOutput = [&](TWED &match) {
@@ -267,16 +268,23 @@ int ttkTracksMatching::RequestData(vtkInformation *request,
                    1. / p));
         trackCostOutputArray->InsertNextValue(match.value);
       }
+    return match.value;
   };
 
+  double globalCost = 0.;
   for(auto [iB, jG] : matchedTracks) {
     if(iB == -1)
-      addTrackDeleteToOutput(goods[jG], true);
+      globalCost += std::pow(addTrackDeleteToOutput(goods[jG], true),p);
     else if(jG == -1)
-      addTrackDeleteToOutput(bidders[iB], false);
+      globalCost += std::pow(addTrackDeleteToOutput(bidders[iB], false),p);
     else
-      addTrackMatchToOutput(distances(iB, jG));
+      globalCost += std::pow(addTrackMatchToOutput(distances(iB, jG)),p);
   }
+
+  std::stringstream globCostStringStream;
+  globCostStringStream << "Global cost : " << std::pow(globalCost, 1. / p);
+
+  printMsg(globCostStringStream.str());
 
   // return success
   return 1;

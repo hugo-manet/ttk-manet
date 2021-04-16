@@ -132,8 +132,8 @@ namespace ttk {
                                         double geometricalLifting) {
     size_t nRows = bidders.size(), nCols = goods.size();
     distances = TMatrix<TWED>(nRows, nCols, TWED());
-    for(size_t iRow = 0; iRow < nRows - 1; ++iRow)
-      for(size_t jCol = 0; jCol < nCols - 1; ++jCol)
+    for(size_t iRow = 0; iRow < nRows; ++iRow)
+      for(size_t jCol = 0; jCol < nCols; ++jCol)
         distances(iRow, jCol) = TWED(&bidders[iRow], &goods[jCol], p, lambda_p,
                                      timeNormalization, geometricalLifting);
   }
