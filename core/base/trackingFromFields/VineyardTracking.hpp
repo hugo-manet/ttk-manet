@@ -19,6 +19,8 @@
 
 #include <PersistenceDiagram.h>
 
+#define NODEBUG
+
 namespace ttk {
   struct MergeTreeLinkCutNode;
   struct SwapEvent;
@@ -47,7 +49,9 @@ namespace ttk {
   };
 
   struct MergeTreeLinkCutNode {
+#ifndef NODEBUG
     SimplexId numForDebug;
+#endif
     /* Splay-tree */
     MergeTreeLinkCutNode *ST_parent;
     MergeTreeLinkCutNode *ST_left; // upper in path
@@ -55,8 +59,8 @@ namespace ttk {
 
     /* Link between splay trees */
     MergeTreeLinkCutNode
-      *PT_parent; // if root then real parent of path start, else NULL
-    std::set<MergeTreeLinkCutNode *> PT_sons; // invert of PT_parent
+      *PT_parent; // if ST root then real parent of path start, else NULL
+    std::set<MergeTreeLinkCutNode *> PT_sons; // inverse of PT_parent
 
     /* Explicit (merge) tree */
     MergeTreeLinkCutNode *MT_parent; // real parent
@@ -67,9 +71,9 @@ namespace ttk {
     double scalarStart, scalarEnd;
 
     MergeTreeLinkCutNode *actualMax;
-    MergeTreeLinkCutNode
-      *MT_max; // Proxy for actualMax in MT. Excluding heavy path branch.
-    NodePair *pairOfMax; // valid on max
+    MergeTreeLinkCutNode *PT_max; // actualMax of PT_sons. Is subtree max
+                                  // excluding heavy path branch.
+    NodePair *pairOfMax; // Max-saddle pairs on local maxima, NULL elsewhere
 
     /*
     MergeTreeLinkCutNode(double _scalarStart, double _scalarEnd,
@@ -93,8 +97,10 @@ namespace ttk {
     bool isMaxSwap;
     NodePair *pairSwap;
 
+#ifndef NODEBUG
     double timeOfLastUpdate;
     MergeTreeLinkCutNode *wasLosingTo;
+#endif
   };
 
   /* builds a tree, returns a (symbolic) root.
