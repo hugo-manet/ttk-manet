@@ -53,12 +53,6 @@ namespace ttk {
     MergeTreeLinkCutNode *ST_left; // upper in path
     MergeTreeLinkCutNode *ST_right; // lower in path
 
-    /* Splay-tree additionnal info */
-    // next in the path, it's the favorite son in MT
-    MergeTreeLinkCutNode *ST_next;
-    // first of the path, or heavy path's "root"/start
-    MergeTreeLinkCutNode *ST_first;
-
     /* Link between splay trees */
     MergeTreeLinkCutNode
       *PT_parent; // if root then real parent of path start, else NULL

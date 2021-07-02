@@ -52,7 +52,7 @@ namespace ttk {
     updateST(x);
   }
 
-  // /!\ does not conserve ST_first and PT_sons/PT_parent ! That is done in
+  // /!\ does not conserve PT_sons/PT_parent ! That is done in
   // splay()
   void rotr(MergeTreeLinkCutNode *const x) {
     MergeTreeLinkCutNode *const y = x->ST_parent;
@@ -90,9 +90,6 @@ namespace ttk {
     while(x->ST_parent) {
       MergeTreeLinkCutNode *const y = x->ST_parent;
       if(y->ST_parent == 0) {
-        // Move ST_first to the new root
-        x->ST_first = y->ST_first;
-        y->ST_first = NULL;
         if(y->PT_parent != NULL) {
           x->PT_parent = y->PT_parent;
           y->PT_parent = 0;
@@ -107,9 +104,6 @@ namespace ttk {
       } else {
         MergeTreeLinkCutNode *const z = y->ST_parent;
         if(z->ST_parent == NULL) {
-          // Move ST_first to the new root
-          x->ST_first = z->ST_first;
-          z->ST_first = NULL;
           if(z->PT_parent != NULL) {
             x->PT_parent = z->PT_parent;
             z->PT_parent = 0;
@@ -137,10 +131,6 @@ namespace ttk {
   MergeTreeLinkCutNode *access(MergeTreeLinkCutNode *const x) {
     splay(x);
     if(x->ST_right) {
-      // cut linked list
-      x->ST_right->ST_first = x->ST_next;
-      x->ST_next = NULL;
-
       // cut tree
       x->ST_right->PT_parent = x;
       x->PT_sons.insert(x->ST_right);
@@ -157,16 +147,11 @@ namespace ttk {
       last = y;
       splay(y);
       if(y->ST_right) {
-        y->ST_right->ST_first = y->ST_next;
-        y->ST_next = NULL;
-
         y->ST_right->PT_parent = y;
         y->PT_sons.insert(y->ST_right);
         y->ST_right->ST_parent = 0;
       }
       y->ST_right = x;
-      y->ST_next = x->ST_first;
-      x->ST_first = NULL;
       x->ST_parent = y;
       y->PT_sons.erase(x);
       x->PT_parent = 0;
@@ -183,20 +168,12 @@ namespace ttk {
       x = x->ST_left;
     splay(x);
     return x;
-    // Old ?
-    return x->ST_first;
   }
 
   void cut(MergeTreeLinkCutNode *const x) {
     access(x);
     // assert(x->ST_left != NULL) // because x had a parent.
     // assert(x->MT_parent != NULL) // because x had a parent.
-    x->ST_first = x;
-    if(x->MT_parent->ST_next == x)
-      x->MT_parent->ST_next = NULL;
-    else
-      cerr << "WTF ? parent had no next"
-           << ((MergeTreeLinkCutNode *)NULL)->actualMax->MT_sons.size() << endl;
     x->ST_left->ST_parent = 0;
     x->ST_left = 0;
 
@@ -214,9 +191,6 @@ namespace ttk {
     y->MT_sons.emplace(x);
 
     x->ST_left = y;
-    y->ST_next = x;
-    x->ST_first = y->ST_first;
-    y->ST_first = NULL;
     y->ST_parent = x;
     update(x);
   }
@@ -439,7 +413,6 @@ namespace ttk {
       that->numForDebug = idNode;
       that->scalarStart = scalarsStart[idNode];
       that->scalarEnd = scalarsEnd[idNode];
-      that->ST_first = that;
       that->actualMax = that->MT_max = that;
       SimplexId neigh;
       for(int iNeigh = 0; iNeigh < grid->getVertexNeighborNumber(idNode);
@@ -481,11 +454,9 @@ namespace ttk {
     }
     // Build sentinels
     globTop->scalarStart = globTop->scalarEnd = globMax * 1.01;
-    globTop->ST_first = globTop;
     globTop->actualMax = globTop->MT_max = globTop;
     globRoot->scalarStart = globRoot->scalarEnd
       = globMin * 1.01; // globMin < -1
-    globRoot->ST_first = globRoot;
     globRoot->actualMax = globRoot->MT_max = globRoot;
 
     link(globTop, globRoot);
