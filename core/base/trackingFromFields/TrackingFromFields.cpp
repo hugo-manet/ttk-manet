@@ -526,7 +526,8 @@ namespace ttk {
     swapQueue.insert({1., {NULL, NULL, false, NULL}});
 
     cerr << std::setprecision(15);
-    while(swapQueue.begin()->first < 1.) {
+    // TODO switch back to 1.
+    while(swapQueue.begin()->first < 1. / 1000.) {
       auto eventIt = swapQueue.begin();
       auto event = eventIt->second;
       double eventTime = eventIt->first;
