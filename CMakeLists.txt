@@ -18,6 +18,7 @@ mark_as_advanced(TTK_WHITELIST_MODE BUILD_SHARED_LIBS)
 # like the TopologyToolKit.so file for paraview
 option(BUILD_SHARED_LIBS "Build TTK as shared lib" ON)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CPACK_PACKAGE_NAME "TTK")
 set(CPACK_PACKAGE_FILE_NAME "ttk")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The Topology ToolKit")

@@ -16,6 +16,7 @@
 
 #include <ttkMacros.h>
 #include <ttkUtils.h>
+#include <vtkType.h>
 #include <vtkUnstructuredGrid.h>
 
 // A VTK macro that enables the instantiation of this class via ::New()
@@ -117,7 +118,7 @@ std::vector<ttk::TracksMatching::Track>
   if(nbOfPoints == 0)
     throw 0;
 
-  auto pointFromIndex = [&](size_t i) -> TimedPoint {
+  auto pointFromIndex = [&](vtkIdType i) -> TimedPoint {
     double timeStep = timeStepScalars->GetValue(i);
     double realZ = points->GetPoint(i)[2];
     if(ZTranslation < 0 && timeStep != 0.)
@@ -126,7 +127,7 @@ std::vector<ttk::TracksMatching::Track>
 
     return TimedPoint(timeStep, valueScalars->GetValue(i),
                       points->GetPoint(i)[0], points->GetPoint(i)[1], realZ,
-                      persistenceScalars->GetValue(i));
+                      persistenceScalars->GetValue(i), i);
   };
   std::map<int, int> trackId; // Tracks could be filtered by user
   int nextTrackId = 0;

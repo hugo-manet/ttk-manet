@@ -10,6 +10,8 @@
 #include <PersistenceDiagram.h>
 #include <Triangulation.h>
 
+#include "VineyardTracking.hpp"
+
 namespace ttk {
 
   class TrackingFromFields : virtual public Debug {

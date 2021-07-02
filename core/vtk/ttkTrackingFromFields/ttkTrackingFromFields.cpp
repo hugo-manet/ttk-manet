@@ -1,3 +1,4 @@
+#include "VineyardTracking.hpp"
 #include <vtkInformation.h>
 
 #include <ttkMacros.h>
@@ -31,6 +32,22 @@ int ttkTrackingFromFields::FillInputPortInformation(int port,
     return 1;
   }
   return 0;
+}
+
+// (*) Vineyard-driven approach
+template <class dataType, class triangulationType>
+int ttkTrackingFromFields::trackWithVineyards(
+  vtkDataSet *input,
+  vtkUnstructuredGrid *output,
+  unsigned long fieldNumber,
+  triangulationType *triangulation) {
+
+  auto res = ttk::buildTree(
+    triangulation, (double *)inputData_[0], (double *)inputData_[1]);
+
+  ttk::loopQueue();
+
+  return 1;
 }
 
 // (*) Persistence-driven approach
@@ -94,15 +111,14 @@ int ttkTrackingFromFields::trackWithPersistenceMatching(
 
   // (+ vertex id)
   std::vector<trackingTuple> trackingsBase;
-  tfp.performTracking(
-    persistenceDiagrams, outputMatchings, trackingsBase);
+  tfp.performTracking(persistenceDiagrams, outputMatchings, trackingsBase);
 
   std::vector<std::set<int>> trackingTupleToMerged(
     trackingsBase.size(), std::set<int>());
 
   if(DoPostProc) {
     tfp.performPostProcess(persistenceDiagrams, trackingsBase,
-                                     trackingTupleToMerged, PostProcThresh);
+                           trackingTupleToMerged, PostProcThresh);
   }
 
   bool useGeometricSpacing = UseGeometricSpacing;
@@ -111,8 +127,8 @@ int ttkTrackingFromFields::trackWithPersistenceMatching(
   ttkTrackingFromPersistenceDiagrams::buildMesh(
     trackingsBase, outputMatchings, persistenceDiagrams, useGeometricSpacing,
     spacing, DoPostProc, trackingTupleToMerged, points, persistenceDiagram,
-    costScalars, persistenceScalars, valueScalars, matchingIdScalars, lengthScalars,
-    timeScalars, componentIds, pointTypeScalars);
+    costScalars, persistenceScalars, valueScalars, matchingIdScalars,
+    lengthScalars, timeScalars, componentIds, pointTypeScalars);
 
   output->ShallowCopy(persistenceDiagram);
 
@@ -244,6 +260,10 @@ int ttkTrackingFromFields::RequestData(vtkInformation *request,
   this->setInputOffsets(inputOrders);
 
   int status = 0;
+  ttkVtkTemplateMacro(
+    inputScalarFields[0]->GetDataType(), triangulation->getType(),
+    (status = this->trackWithVineyards<VTK_TT, TTK_TT>(
+       input, output, fieldNumber, (TTK_TT *)triangulation->getData())));
   if(useTTKMethod) {
     ttkVtkTemplateMacro(
       inputScalarFields[0]->GetDataType(), triangulation->getType(),

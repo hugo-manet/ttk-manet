@@ -23,6 +23,7 @@
 #include <Debug.h>
 #include <Triangulation.h>
 #include <limits>
+#include <paraview-5.8/vtkType.h>
 
 namespace ttk {
 
@@ -38,12 +39,14 @@ namespace ttk {
                  float x_,
                  float y_,
                  float z_,
-                 double persistence_)
+                 double persistence_,
+                 vtkIdType vertexId_)
         : DataPoint(val_, x_, y_, z_), timeStep(timeStep_),
-          persistence(persistence_) {
+          persistence(persistence_), vertexId(vertexId_) {
       }
       float timeStep;
       double persistence;
+      vtkIdType vertexId;
     };
     struct Track : public std::vector<TimedPoint> {
       // = TWED_p cost of deletion: almost TWED_p to the same with pers := 0

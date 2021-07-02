@@ -104,6 +104,11 @@ private:
   std::string WassersteinMetric{"2"};
 
   template <class dataType, class triangulationType>
+  int trackWithVineyards(vtkDataSet *input,
+                         vtkUnstructuredGrid *output,
+                         unsigned long fieldNumber,
+                         triangulationType *triangulation);
+  template <class dataType, class triangulationType>
   int trackWithPersistenceMatching(vtkDataSet *input,
                                    vtkUnstructuredGrid *output,
                                    unsigned long fieldNumber,
