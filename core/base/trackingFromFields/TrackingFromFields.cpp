@@ -575,7 +575,7 @@ namespace ttk {
 
     cerr << std::setprecision(15);
     // TODO switch back to 1.
-    while(swapQueue.begin()->first < 1. / 1000.) {
+    while(swapQueue.begin()->first < 1.) {
       auto eventIt = swapQueue.begin();
       auto event = eventIt->second;
       double eventTime = eventIt->first;
