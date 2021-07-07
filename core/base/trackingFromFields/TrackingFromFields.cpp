@@ -217,10 +217,8 @@ namespace ttk {
 
     return crossing;
   }
-  void newLink(MergeTreeLinkCutNode *const son,
-               MergeTreeLinkCutNode *const parent) {
-    link(son, parent);
-
+  void createTreeSwapEvent(MergeTreeLinkCutNode *const son,
+                           MergeTreeLinkCutNode *const parent) {
     double crossing = crossTime(son, parent);
     if(son->scalarEnd > parent->scalarEnd)
       crossing = 2.;
@@ -232,6 +230,12 @@ namespace ttk {
                                             actualTime, NULL
 #endif
                                   }});
+  }
+  void newLink(MergeTreeLinkCutNode *const son,
+               MergeTreeLinkCutNode *const parent) {
+    link(son, parent);
+
+    createTreeSwapEvent(son, parent);
   }
 
   /** WARNING : Must be done with actualTime < (!=) the time of the event.
@@ -284,7 +288,50 @@ namespace ttk {
     const int nbSons = MT_sons.size();
     const int nbGrandsons = son->MT_sons.size();
 
-    // TODO maybe optimize if both are 1
+    if(nbSons == 1 && nbGrandsons == 1 && !isLocal) {
+      // Optimization : Regular nodes swap. Times goes from 3h to 40m with this.
+      // TODO see in benchmark if it's still the slowest part,
+      // and if optimizing it further (ie drop access/splay or similar)
+      // might make the code run faster
+      access(son);
+      splay(this);
+
+      son->ST_left = this->ST_left;
+      this->ST_left = NULL;
+      son->ST_left->ST_parent = son;
+
+      this->ST_right = NULL;
+      son->ST_parent = NULL;
+
+      son->ST_right = this;
+      this->ST_parent = son;
+
+      auto grandson = *son->MT_sons.begin();
+      auto father = this->MT_parent;
+      auto grandsonPT = *son->PT_sons.begin();
+
+      grandsonPT->PT_parent = this;
+      this->PT_sons.insert(grandsonPT);
+      son->PT_sons.clear();
+
+      father->MT_sons.erase(this);
+      father->MT_sons.insert(son);
+      son->MT_sons.clear();
+      son->MT_sons.insert(this);
+      this->MT_sons.clear();
+      this->MT_sons.insert(grandson);
+      son->MT_parent = father;
+      this->MT_parent = son;
+      grandson->MT_parent = this;
+
+      update(this);
+      update(son);
+
+      createTreeSwapEvent(son, father);
+      createTreeSwapEvent(grandson, this);
+
+      return;
+    }
 
     MergeTreeLinkCutNode *const myParent = this->MT_parent;
     cut(this);
@@ -388,6 +435,7 @@ namespace ttk {
                                               double *scalarsStart,
                                               double *scalarsEnd) {
     actualTime = 0.;
+    swapQueue.clear();
     grid->preconditionVertexNeighbors();
     SimplexId nbNodes = grid->getNumberOfVertices();
 
