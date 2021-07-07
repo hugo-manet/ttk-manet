@@ -42,11 +42,94 @@ int ttkTrackingFromFields::trackWithVineyards(
   unsigned long fieldNumber,
   triangulationType *triangulation) {
 
-  auto res = ttk::buildTree(
-    triangulation, (double *)inputData_[0], (double *)inputData_[1]);
+  vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
+  vtkSmartPointer<vtkUnstructuredGrid> persistenceDiagram
+    = vtkSmartPointer<vtkUnstructuredGrid>::New();
+
+  vtkSmartPointer<vtkDoubleArray> costScalars
+    = vtkSmartPointer<vtkDoubleArray>::New();
+  vtkSmartPointer<vtkIntArray> matchTypeScalars
+    = vtkSmartPointer<vtkIntArray>::New();
+  costScalars->SetName("Cost");
+  matchTypeScalars->SetName("MatchType");
+
+  auto res
+    = ttk::buildTree(triangulation, (double *)inputData_[fieldNumber - 2],
+                     (double *)inputData_[fieldNumber - 1]);
+
+  std::map<SimplexId, std::pair<double, double>> startPairs;
+  for(SimplexId i = 0; i < res.size(); ++i) {
+    if(res[i].pairOfMax != NULL)
+      startPairs.insert({i,
+                         {res[i].pairOfMax->saddle->scalarStart,
+                          res[i].pairOfMax->max->scalarEnd}});
+  }
 
   ttk::loopQueue();
+  double globalCost = 0.0;
 
+  auto addPair = [&](SimplexId start, SimplexId end,
+                     std::pair<double, double> startPair,
+                     std::pair<double, double> endPair) {
+    int typeOfMatch = 1; // NORMAL
+    if(start == -1) {
+      start = end;
+      typeOfMatch = 0; // CREATION
+    }
+    if(end == -1) {
+      end = start;
+      typeOfMatch = 2; // DELETION
+    }
+    float startCoord[3], endCoord[3];
+    triangulation->getVertexPoint(
+      start, startCoord[0], startCoord[1], startCoord[2]);
+    triangulation->getVertexPoint(end, endCoord[0], endCoord[1], endCoord[2]);
+
+    if(UseGeometricSpacing) {
+      startCoord[2] += Spacing * (fieldNumber - 2);
+      endCoord[2] += Spacing * (fieldNumber - 1);
+    }
+    points->InsertNextPoint(startCoord[0], startCoord[1], startCoord[2]);
+    points->InsertNextPoint(endCoord[0], endCoord[1], endCoord[2]);
+    vtkIdType line[2]
+      = {points->GetNumberOfPoints() - 2, points->GetNumberOfPoints() - 1};
+    persistenceDiagram->InsertNextCell(VTK_LINE, 2, line);
+    matchTypeScalars->InsertNextTuple1(typeOfMatch);
+    double costSquared
+      = (startPair.first - endPair.first) * (startPair.first - endPair.first)
+        + (startPair.second - endPair.second)
+            * (startPair.second - endPair.second);
+    globalCost += costSquared;
+    costScalars->InsertNextTuple1(std::sqrt(costSquared));
+  };
+  for(SimplexId i = 0; i < res.size(); ++i) {
+    if(res[i].pairOfMax != NULL) {
+      std::pair<double, double> endPair{
+        res[i].pairOfMax->saddle->scalarEnd, res[i].pairOfMax->max->scalarEnd};
+      double middle = (endPair.first + endPair.second) / 2.;
+      std::pair<double, double> startPair{middle, middle};
+      if(res[i].pairOfMax->idFirstMax != -1) {
+        auto it = startPairs.find(res[i].pairOfMax->idFirstMax);
+        startPair = it->second;
+        startPairs.erase(it);
+      }
+      addPair(res[i].pairOfMax->idFirstMax, i, startPair, endPair);
+    }
+  }
+  for(auto it : startPairs) {
+    auto stp = it.second;
+    double middle = (stp.first + stp.second) / 2.;
+    std::pair<double, double> endPair{middle, middle};
+    addPair(-1, it.first, stp, endPair);
+  }
+
+  std::cout << "Global cost : " << globalCost << std::endl;
+
+  persistenceDiagram->SetPoints(points);
+  persistenceDiagram->GetCellData()->AddArray(costScalars);
+  persistenceDiagram->GetCellData()->AddArray(matchTypeScalars);
+
+  output->ShallowCopy(persistenceDiagram);
   return 1;
 }
 
@@ -215,6 +298,7 @@ int ttkTrackingFromFields::RequestData(vtkInformation *request,
         useTTKMethod = true;
         break;
       case 4:
+      case 5:
         break;
       default:
         this->printMsg("Unrecognized tracking method.");
@@ -234,6 +318,8 @@ int ttkTrackingFromFields::RequestData(vtkInformation *request,
         break;
       case str2int("4"):
       case str2int("greedy"):
+      case str2int("5"):
+      case str2int("vineyard"):
         break;
       default:
         this->printMsg("Unrecognized tracking method.");
@@ -260,17 +346,17 @@ int ttkTrackingFromFields::RequestData(vtkInformation *request,
   this->setInputOffsets(inputOrders);
 
   int status = 0;
-  ttkVtkTemplateMacro(
-    inputScalarFields[0]->GetDataType(), triangulation->getType(),
-    (status = this->trackWithVineyards<VTK_TT, TTK_TT>(
-       input, output, fieldNumber, (TTK_TT *)triangulation->getData())));
   if(useTTKMethod) {
     ttkVtkTemplateMacro(
       inputScalarFields[0]->GetDataType(), triangulation->getType(),
       (status = this->trackWithPersistenceMatching<VTK_TT, TTK_TT>(
          input, output, fieldNumber, (TTK_TT *)triangulation->getData())));
   } else {
-    this->printMsg("The specified matching method is not supported.");
+    this->printMsg("Experimental tracking method...");
+    ttkVtkTemplateMacro(
+      inputScalarFields[0]->GetDataType(), triangulation->getType(),
+      (status = this->trackWithVineyards<VTK_TT, TTK_TT>(
+         input, output, fieldNumber, (TTK_TT *)triangulation->getData())));
   }
 
   return status;
