@@ -453,6 +453,7 @@ namespace ttk {
     // trees, so their actualMax are right !
 
     std::vector<MergeTreeLinkCutNode *> losingPairs;
+    std::vector<NodePair *> toUpdateTime;
     MergeTreeLinkCutNode *winningPair = NULL;
     for(auto branch : this->PT_sons) {
       if(winningPair == NULL) // Exactly the first iteration
@@ -466,7 +467,7 @@ namespace ttk {
     }
     for(auto branch : losingPairs) {
       branch->actualMax->pairOfMax->saddle = this;
-      updatePairEventTime(branch->actualMax->pairOfMax, swapQueue, actualTime);
+      toUpdateTime.push_back(branch->actualMax->pairOfMax);
     }
 
     losingPairs.clear();
@@ -479,8 +480,10 @@ namespace ttk {
     }
     for(auto branch : losingPairs) {
       branch->actualMax->pairOfMax->saddle = son;
-      updatePairEventTime(branch->actualMax->pairOfMax, swapQueue, actualTime);
+      toUpdateTime.push_back(branch->actualMax->pairOfMax);
     }
+    for(auto nodepair : toUpdateTime)
+      updatePairEventTime(nodepair, swapQueue, actualTime);
 
     return;
   }
