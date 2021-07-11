@@ -75,6 +75,18 @@ namespace ttk {
                                   // excluding heavy path branch.
     NodePair *pairOfMax; // Max-saddle pairs on local maxima, NULL elsewhere
 
+#define PAST_SON_SIZE 5
+    MergeTreeLinkCutNode
+      *pastSons[PAST_SON_SIZE]; // if the swap event already exists
+    int actuSon;
+    bool hasRecentSonElseInsert(MergeTreeLinkCutNode *theSon) {
+      for(int i = 0; i < PAST_SON_SIZE; ++i)
+        if(pastSons[i] == theSon)
+          return true;
+      pastSons[++actuSon % PAST_SON_SIZE] = theSon;
+      return false;
+    }
+
     /*
     MergeTreeLinkCutNode(double _scalarStart, double _scalarEnd,
     std::set<MergeTreeLinkCutNode*>& _upperLink) : ST_parent(NULL),

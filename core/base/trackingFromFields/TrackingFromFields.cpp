@@ -12,12 +12,6 @@
 #include <unistd.h>
 #include <vector>
 
-/** If there is some (heavy ?) bug, consider having the max()
- *  computed only on the explicit structure, and not the implicit (link-cut)
- * one. I guess it should work and be less error-prone, but needs a more
- * systematic design.
- */
-
 namespace ttk {
 
   double actualTime = 0.;
@@ -219,10 +213,12 @@ namespace ttk {
   }
   void createTreeSwapEvent(MergeTreeLinkCutNode *const son,
                            MergeTreeLinkCutNode *const parent) {
-    double crossing = crossTime(son, parent);
-    if(son->scalarEnd > parent->scalarEnd)
-      crossing = 2.;
+    if(parent->hasRecentSonElseInsert(son))
+      return; // we've been here recently
 
+    double crossing = crossTime(son, parent);
+    if(son->scalarEnd > parent->scalarEnd || crossing >= 1.)
+      return;
     if(crossing > 0. || (crossing == 0. && son->scalarEnd > parent->scalarEnd))
       swapQueue.insert({crossing, SwapEvent{son, parent, false, NULL
 #ifndef NODEBUG
@@ -276,6 +272,85 @@ namespace ttk {
     }
     return false;
   }
+
+  void repairNodeLinks(MergeTreeLinkCutNode *const node,
+                       MergeTreeLinkCutNode *const other) {
+    // If we see &*node in one of the links, we change it to &*other
+    // and let repair(other,node) handle the other side
+    if(node->ST_parent == node)
+      node->ST_parent = other;
+    else if(node->ST_parent) {
+      if(node->ST_parent->ST_left == other)
+        node->ST_parent->ST_left = node;
+      else
+        node->ST_parent->ST_right = node;
+    }
+
+    if(node->ST_left == node)
+      node->ST_left = other;
+    else if(node->ST_left)
+      node->ST_left->ST_parent = node;
+
+    if(node->ST_right == node)
+      node->ST_right = other;
+    else if(node->ST_right)
+      node->ST_right->ST_parent = node;
+
+    if(node->PT_parent == node)
+      node->PT_parent = other;
+    else if(node->PT_parent) {
+      node->PT_parent->PT_sons.erase(other);
+      node->PT_parent->PT_sons.emplace(node);
+    }
+
+    if(!node->PT_sons.empty()) {
+      if(*node->PT_sons.begin() == node) {
+        node->PT_sons.clear();
+        node->PT_sons.emplace(other);
+      } else
+        (*node->PT_sons.begin())->PT_parent = node;
+    }
+
+    if(node->MT_parent == node)
+      node->MT_parent = other;
+    else if(node->MT_parent) {
+      node->MT_parent->MT_sons.erase(other);
+      node->MT_parent->MT_sons.emplace(node);
+    }
+
+    if(!node->MT_sons.empty()) {
+      if(*node->MT_sons.begin() == node) {
+        node->MT_sons.clear();
+        node->MT_sons.emplace(other);
+      } else
+        (*node->MT_sons.begin())->MT_parent = node;
+    }
+
+    // we don't repair the values here : this can't be repaired easily
+    // so we just update() the nodes afterwards.
+  }
+  void fastSwap(MergeTreeLinkCutNode *const that,
+                MergeTreeLinkCutNode *const son) {
+    // swap every exterior links
+    std::swap(that->ST_parent, son->ST_parent);
+    std::swap(that->ST_left, son->ST_left);
+    std::swap(that->ST_right, son->ST_right);
+    std::swap(that->PT_parent, son->PT_parent);
+    std::swap(that->PT_sons, son->PT_sons);
+    std::swap(that->MT_parent, son->MT_parent);
+    std::swap(that->MT_sons, son->MT_sons);
+    std::swap(that->actualMax, son->actualMax);
+    std::swap(that->PT_max, son->PT_max);
+
+    repairNodeLinks(that, son);
+    repairNodeLinks(son, that);
+    update(son);
+    update(that);
+    update(son); // Because son can depend on that
+
+    createTreeSwapEvent(son, son->MT_parent);
+    createTreeSwapEvent(*that->MT_sons.begin(), that);
+  }
   void MergeTreeLinkCutNode::swapWithSon(MergeTreeLinkCutNode *const son) {
     if(MT_sons.count(son) == 0)
       return; // This event is outdated
@@ -289,47 +364,7 @@ namespace ttk {
     const int nbGrandsons = son->MT_sons.size();
 
     if(nbSons == 1 && nbGrandsons == 1 && !isLocal) {
-      // Optimization : Regular nodes swap. Times goes from 3h to 40m with this.
-      // TODO see in benchmark if it's still the slowest part,
-      // and if optimizing it further (ie drop access/splay or similar)
-      // might make the code run faster
-      access(son);
-      splay(this);
-
-      son->ST_left = this->ST_left;
-      this->ST_left = NULL;
-      son->ST_left->ST_parent = son;
-
-      this->ST_right = NULL;
-      son->ST_parent = NULL;
-
-      son->ST_right = this;
-      this->ST_parent = son;
-
-      auto grandson = *son->MT_sons.begin();
-      auto father = this->MT_parent;
-      auto grandsonPT = *son->PT_sons.begin();
-
-      grandsonPT->PT_parent = this;
-      this->PT_sons.insert(grandsonPT);
-      son->PT_sons.clear();
-
-      father->MT_sons.erase(this);
-      father->MT_sons.insert(son);
-      son->MT_sons.clear();
-      son->MT_sons.insert(this);
-      this->MT_sons.clear();
-      this->MT_sons.insert(grandson);
-      son->MT_parent = father;
-      this->MT_parent = son;
-      grandson->MT_parent = this;
-
-      update(this);
-      update(son);
-
-      createTreeSwapEvent(son, father);
-      createTreeSwapEvent(grandson, this);
-
+      fastSwap(this, son);
       return;
     }
 
@@ -558,7 +593,7 @@ namespace ttk {
           std::cerr << "ALERT : possible numerical instability at time "
                     << actualTime << std::endl;
           // TODO +eps is a anticipated hotfix ; to be done better someday
-          actualTime += 0.0001;
+          actualTime += 0.0000000001;
         }
       }
     }
@@ -609,7 +644,6 @@ namespace ttk {
 
         MergeTreeLinkCutNode *theOldMax = theSaddle->PT_max;
 
-        // TODO BUG This should explode.
         if(updatePairEventTime(event.pairSwap))
           continue;
 
@@ -650,11 +684,11 @@ namespace ttk {
         setActuTime(eventTime);
         event.leafing->swapWithSon(event.rooting);
       }
-#ifndef NODEBUG
       if(actualTime >= swapQueue.begin()->first) {
         std::cerr << "ALERT : possible time inconsistency, inserted event "
                      "before actual time."
                   << endl;
+#ifndef NODEBUG
         auto nextEv = swapQueue.begin()->second;
         if(nextEv.isMaxSwap)
           std::cerr << "Next event (max) :" << nextEv.pairSwap->max << " ^, "
@@ -675,8 +709,8 @@ namespace ttk {
                     << eventTime << endl;
         if(eventTime == swapQueue.begin()->first)
           cerr << "Time is the same" << endl;
-      }
 #endif
+      }
     }
   }
 
