@@ -14,41 +14,43 @@
 
 namespace ttk {
 
-  double actualTime = 0.;
-  double getVal(const MergeTreeLinkCutNode *const node) {
+  double getVal(const MergeTreeLinkCutNode *const node,
+                const double actualTime) {
     return node->scalarStart
            + actualTime * (node->scalarEnd - node->scalarStart);
   }
 
   void setMax(MergeTreeLinkCutNode *&dest,
-              const MergeTreeLinkCutNode *const option) {
+              const MergeTreeLinkCutNode *const option,
+              const double actualTime) {
     if(option == NULL)
       return;
-    const double dVal = getVal(dest), oVal = getVal(option->actualMax);
+    const double dVal = getVal(dest, actualTime),
+                 oVal = getVal(option->actualMax, actualTime);
     if(dVal < oVal || (dVal == oVal && (dest < option->actualMax)))
       dest = option->actualMax;
   }
 
-  void updateMT(MergeTreeLinkCutNode *const x) {
+  void updateMT(MergeTreeLinkCutNode *const x, const double actualTime) {
     x->PT_max = x;
     for(auto son : x->PT_sons)
-      setMax(x->PT_max, son);
+      setMax(x->PT_max, son, actualTime);
   }
 
-  void updateST(MergeTreeLinkCutNode *const x) {
+  void updateST(MergeTreeLinkCutNode *const x, const double actualTime) {
     x->actualMax = x->PT_max;
-    setMax(x->actualMax, x->ST_left);
-    setMax(x->actualMax, x->ST_right);
+    setMax(x->actualMax, x->ST_left, actualTime);
+    setMax(x->actualMax, x->ST_right, actualTime);
   }
 
-  void update(MergeTreeLinkCutNode *const x) {
-    updateMT(x);
-    updateST(x);
+  void update(MergeTreeLinkCutNode *const x, const double actualTime) {
+    updateMT(x, actualTime);
+    updateST(x, actualTime);
   }
 
   // /!\ does not conserve PT_sons/PT_parent ! That is done in
   // splay()
-  void rotr(MergeTreeLinkCutNode *const x) {
+  void rotr(MergeTreeLinkCutNode *const x, const double actualTime) {
     MergeTreeLinkCutNode *const y = x->ST_parent;
     MergeTreeLinkCutNode *const z = y->ST_parent;
     if((y->ST_left = x->ST_right))
@@ -60,10 +62,10 @@ namespace ttk {
       else
         z->ST_right = x;
     }
-    updateST(y);
+    updateST(y, actualTime);
   }
 
-  void rotl(MergeTreeLinkCutNode *const x) {
+  void rotl(MergeTreeLinkCutNode *const x, const double actualTime) {
     MergeTreeLinkCutNode *const y = x->ST_parent;
     MergeTreeLinkCutNode *const z = y->ST_parent;
     if((y->ST_right = x->ST_left))
@@ -75,10 +77,10 @@ namespace ttk {
       else
         z->ST_right = x;
     }
-    updateST(y);
+    updateST(y, actualTime);
   }
 
-  void splay(MergeTreeLinkCutNode *const x) {
+  void splay(MergeTreeLinkCutNode *const x, const double actualTime) {
     if(x->ST_parent == NULL)
       return;
     while(x->ST_parent) {
@@ -92,9 +94,9 @@ namespace ttk {
         }
 
         if(x == y->ST_left)
-          rotr(x);
+          rotr(x, actualTime);
         else
-          rotl(x);
+          rotl(x, actualTime);
       } else {
         MergeTreeLinkCutNode *const z = y->ST_parent;
         if(z->ST_parent == NULL) {
@@ -108,29 +110,30 @@ namespace ttk {
 
         if(y == z->ST_left) {
           if(x == y->ST_left)
-            rotr(y), rotr(x);
+            rotr(y, actualTime), rotr(x, actualTime);
           else
-            rotl(x), rotr(x);
+            rotl(x, actualTime), rotr(x, actualTime);
         } else {
           if(x == y->ST_right)
-            rotl(y), rotl(x);
+            rotl(y, actualTime), rotl(x, actualTime);
           else
-            rotr(x), rotl(x);
+            rotr(x, actualTime), rotl(x, actualTime);
         }
       }
     }
-    updateST(x);
+    updateST(x, actualTime);
   }
 
-  MergeTreeLinkCutNode *access(MergeTreeLinkCutNode *const x) {
-    splay(x);
+  MergeTreeLinkCutNode *access(MergeTreeLinkCutNode *const x,
+                               const double actualTime) {
+    splay(x, actualTime);
     if(x->ST_right) {
       // cut tree
       x->ST_right->PT_parent = x;
       x->PT_sons.insert(x->ST_right);
       x->ST_right->ST_parent = 0;
       x->ST_right = 0;
-      update(x); // TODO maybe just update the PT_max ?
+      update(x, actualTime); // TODO maybe just update the PT_max ?
       // Maybe also check the actualMax, because this might change with the new
       // time ?
     }
@@ -139,7 +142,7 @@ namespace ttk {
     while(x->PT_parent) {
       MergeTreeLinkCutNode *const y = x->PT_parent;
       last = y;
-      splay(y);
+      splay(y, actualTime);
       if(y->ST_right) {
         y->ST_right->PT_parent = y;
         y->PT_sons.insert(y->ST_right);
@@ -149,23 +152,23 @@ namespace ttk {
       x->ST_parent = y;
       y->PT_sons.erase(x);
       x->PT_parent = 0;
-      update(y);
-      splay(x);
+      update(y, actualTime);
+      splay(x, actualTime);
     }
 
     return last;
   }
 
-  MergeTreeLinkCutNode *root(MergeTreeLinkCutNode *x) {
-    access(x);
+  MergeTreeLinkCutNode *root(MergeTreeLinkCutNode *x, const double actualTime) {
+    access(x, actualTime);
     while(x->ST_left)
       x = x->ST_left;
-    splay(x);
+    splay(x, actualTime);
     return x;
   }
 
-  void cut(MergeTreeLinkCutNode *const x) {
-    access(x);
+  void cut(MergeTreeLinkCutNode *const x, const double actualTime) {
+    access(x, actualTime);
     // assert(x->ST_left != NULL) // because x had a parent.
     // assert(x->MT_parent != NULL) // because x had a parent.
     x->ST_left->ST_parent = 0;
@@ -174,30 +177,33 @@ namespace ttk {
     x->MT_parent->MT_sons.erase(x);
     x->MT_parent = NULL;
 
-    update(x);
+    update(x, actualTime);
   }
 
-  void link(MergeTreeLinkCutNode *const x, MergeTreeLinkCutNode *const y) {
-    access(x);
-    access(y);
+  void link(MergeTreeLinkCutNode *const x,
+            MergeTreeLinkCutNode *const y,
+            const double actualTime) {
+    access(x, actualTime);
+    access(y, actualTime);
     // assert(x->ST_left == NULL) // because x had no parent.
     x->MT_parent = y;
     y->MT_sons.emplace(x);
 
     x->ST_left = y;
     y->ST_parent = x;
-    update(x);
+    update(x, actualTime);
   }
 
   MergeTreeLinkCutNode *lca(MergeTreeLinkCutNode *const x,
-                            MergeTreeLinkCutNode *const y) {
-    access(x);
-    return access(y);
+                            MergeTreeLinkCutNode *const y,
+                            const double actualTime) {
+    access(x, actualTime);
+    return access(y, actualTime);
   }
 
-  EventQueue swapQueue;
-
-  double crossTime(MergeTreeLinkCutNode *son, MergeTreeLinkCutNode *parent) {
+  double crossTime(MergeTreeLinkCutNode *son,
+                   MergeTreeLinkCutNode *parent,
+                   const double actualTime) {
     double crossing = -1.;
     if(son->scalarEnd - son->scalarStart - parent->scalarEnd
          + parent->scalarStart
@@ -212,11 +218,13 @@ namespace ttk {
     return crossing;
   }
   void createTreeSwapEvent(MergeTreeLinkCutNode *const son,
-                           MergeTreeLinkCutNode *const parent) {
+                           MergeTreeLinkCutNode *const parent,
+                           EventQueue &swapQueue,
+                           const double actualTime) {
     if(parent->hasRecentSonElseInsert(son))
       return; // we've been here recently
 
-    double crossing = crossTime(son, parent);
+    double crossing = crossTime(son, parent, actualTime);
     if(son->scalarEnd > parent->scalarEnd || crossing >= 1.)
       return;
     if(crossing > 0. || (crossing == 0. && son->scalarEnd > parent->scalarEnd))
@@ -228,20 +236,25 @@ namespace ttk {
                                   }});
   }
   void newLink(MergeTreeLinkCutNode *const son,
-               MergeTreeLinkCutNode *const parent) {
-    link(son, parent);
+               MergeTreeLinkCutNode *const parent,
+               EventQueue &swapQueue,
+               const double actualTime) {
+    link(son, parent, actualTime);
 
-    createTreeSwapEvent(son, parent);
+    createTreeSwapEvent(son, parent, swapQueue, actualTime);
   }
 
   /** WARNING : Must be done with actualTime < (!=) the time of the event.
    *  If not, you'll get a crossTime of +inf
    *  @return true if time was modified
    */
-  bool updatePairEventTime(NodePair *ofThePair) {
-    access(ofThePair->saddle);
+  bool updatePairEventTime(NodePair *ofThePair,
+                           EventQueue &swapQueue,
+                           const double actualTime) {
+    access(ofThePair->saddle, actualTime);
 
-    double newTime = crossTime(ofThePair->saddle->PT_max, ofThePair->max);
+    double newTime
+      = crossTime(ofThePair->saddle->PT_max, ofThePair->max, actualTime);
     if(ofThePair->saddle->PT_max->scalarEnd >= ofThePair->max->scalarEnd)
       newTime = 2.;
 
@@ -330,7 +343,9 @@ namespace ttk {
     // so we just update() the nodes afterwards.
   }
   void fastSwap(MergeTreeLinkCutNode *const that,
-                MergeTreeLinkCutNode *const son) {
+                MergeTreeLinkCutNode *const son,
+                EventQueue &swapQueue,
+                const double actualTime) {
     // swap every exterior links
     std::swap(that->ST_parent, son->ST_parent);
     std::swap(that->ST_left, son->ST_left);
@@ -344,14 +359,16 @@ namespace ttk {
 
     repairNodeLinks(that, son);
     repairNodeLinks(son, that);
-    update(son);
-    update(that);
-    update(son); // Because son can depend on that
+    update(son, actualTime);
+    update(that, actualTime);
+    update(son, actualTime); // Because son can depend on that
 
-    createTreeSwapEvent(son, son->MT_parent);
-    createTreeSwapEvent(*that->MT_sons.begin(), that);
+    createTreeSwapEvent(son, son->MT_parent, swapQueue, actualTime);
+    createTreeSwapEvent(*that->MT_sons.begin(), that, swapQueue, actualTime);
   }
-  void MergeTreeLinkCutNode::swapWithSon(MergeTreeLinkCutNode *const son) {
+  void MergeTreeLinkCutNode::swapWithSon(MergeTreeLinkCutNode *const son,
+                                         EventQueue &swapQueue,
+                                         const double actualTime) {
     if(MT_sons.count(son) == 0)
       return; // This event is outdated
 
@@ -364,37 +381,37 @@ namespace ttk {
     const int nbGrandsons = son->MT_sons.size();
 
     if(nbSons == 1 && nbGrandsons == 1 && !isLocal) {
-      fastSwap(this, son);
+      fastSwap(this, son, swapQueue, actualTime);
       return;
     }
 
     MergeTreeLinkCutNode *const myParent = this->MT_parent;
-    cut(this);
-    cut(son);
+    cut(this, actualTime);
+    cut(son, actualTime);
 
     // We need a temporary copy because iterators will be invalidated when we
     // cut.
     std::vector<MergeTreeLinkCutNode *> listOfGrandsons(
       son->MT_sons.begin(), son->MT_sons.end());
     for(auto grandson : listOfGrandsons)
-      cut(grandson);
+      cut(grandson, actualTime);
 
     std::set<MergeTreeLinkCutNode *> seenRoots;
     for(auto neigh : upperLink)
-      seenRoots.insert(root(neigh));
+      seenRoots.insert(root(neigh, actualTime));
 
     for(auto rt : seenRoots) {
       auto idx = std::find(listOfGrandsons.begin(), listOfGrandsons.end(), rt);
       if(idx != listOfGrandsons.end()) {
-        newLink(*idx, this);
+        newLink(*idx, this, swapQueue, actualTime);
         listOfGrandsons.erase(idx);
       }
     }
     for(auto unseen : listOfGrandsons)
-      link(unseen, son);
+      link(unseen, son, actualTime);
 
-    newLink(son, myParent);
-    link(this, son); // not a newLink because they've just swap
+    newLink(son, myParent, swapQueue, actualTime);
+    link(this, son, actualTime); // not a newLink because they've just swap
 
     const int nbGrandsonKept = son->MT_sons.size() - 1;
 
@@ -404,7 +421,7 @@ namespace ttk {
       if(nbSons == 1) {
         this->pairOfMax = son->pairOfMax;
         this->pairOfMax->max = this;
-        updatePairEventTime(this->pairOfMax);
+        updatePairEventTime(this->pairOfMax, swapQueue, actualTime);
       } else {
         swapQueue.erase(son->pairOfMax->itToEvent);
         delete son->pairOfMax;
@@ -427,7 +444,7 @@ namespace ttk {
 #endif
                             }});
 
-      updatePairEventTime(this->pairOfMax);
+      updatePairEventTime(this->pairOfMax, swapQueue, actualTime);
       return;
     }
 
@@ -442,48 +459,44 @@ namespace ttk {
         winningPair = branch;
       else {
         losingPairs.push_back(branch);
-        if(getVal(branch->actualMax) > getVal(winningPair->actualMax))
+        if(getVal(branch->actualMax, actualTime)
+           > getVal(winningPair->actualMax, actualTime))
           std::swap(winningPair, losingPairs.back());
       }
     }
     for(auto branch : losingPairs) {
       branch->actualMax->pairOfMax->saddle = this;
-      updatePairEventTime(branch->actualMax->pairOfMax);
+      updatePairEventTime(branch->actualMax->pairOfMax, swapQueue, actualTime);
     }
 
     losingPairs.clear();
 
     for(auto branch : son->PT_sons) {
       losingPairs.push_back(branch);
-      if(getVal(branch->actualMax) > getVal(winningPair->actualMax))
+      if(getVal(branch->actualMax, actualTime)
+         > getVal(winningPair->actualMax, actualTime))
         std::swap(winningPair, losingPairs.back());
     }
     for(auto branch : losingPairs) {
       branch->actualMax->pairOfMax->saddle = son;
-      updatePairEventTime(branch->actualMax->pairOfMax);
+      updatePairEventTime(branch->actualMax->pairOfMax, swapQueue, actualTime);
     }
 
     return;
   }
 
-  std::vector<MergeTreeLinkCutNode> buildTree(AbstractTriangulation *grid,
-                                              double *scalarsStart,
-                                              double *scalarsEnd) {
-    actualTime = 0.;
-    swapQueue.clear();
-    grid->preconditionVertexNeighbors();
+  std::pair<std::vector<MergeTreeLinkCutNode>, EventQueue>
+    buildTree(const AbstractTriangulation *grid,
+              double *scalarsStart,
+              double *scalarsEnd) {
+    std::pair<std::vector<MergeTreeLinkCutNode>, EventQueue> returnVals;
+    EventQueue &swapQueue = returnVals.second;
+    const double actualTime = 0.;
     SimplexId nbNodes = grid->getNumberOfVertices();
 
-#ifndef NONOISE
-    srand(42); // Try 42 for bug at time 0.00996
-    for(int i = 0; i < nbNodes; ++i) {
-      scalarsStart[i] += (rand() - RAND_MAX / 2.) / (RAND_MAX * 1000.);
-      scalarsEnd[i] += (rand() - RAND_MAX / 2.) / (RAND_MAX * 1000.);
-    }
-#endif
-
     std::vector<SimplexId> insertOrder(nbNodes);
-    std::vector<MergeTreeLinkCutNode> treeData(nbNodes + 2);
+    std::vector<MergeTreeLinkCutNode> &treeData = returnVals.first;
+    treeData.resize(nbNodes + 2);
     for(SimplexId i = 0; i < nbNodes; ++i)
       insertOrder[i] = i;
     auto compareIdx = [&](SimplexId a, SimplexId b) -> bool {
@@ -522,34 +535,34 @@ namespace ttk {
                     << " is to be inserted (and maybe linked)" << endl;
 #endif
           that->upperLink.insert(&treeData[neigh]);
-          auto neighRoot = root(&treeData[neigh]);
+          auto neighRoot = root(&treeData[neigh], actualTime);
           if(neighRoot != that) {
 #ifndef NODEBUG
             std::cout << "it is linked" << endl;
 #endif
 
-            newLink(neighRoot, that);
+            newLink(neighRoot, that, swapQueue, actualTime);
           }
         }
       }
       if(that->MT_sons.size() == 0) {
         that->pairOfMax = new NodePair{that, globRoot, idNode, swapQueue.end()};
       } else if(that->MT_sons.size() > 1) {
-        access(that);
+        access(that, actualTime);
         auto maxSon = that->PT_max;
         for(auto son : that->MT_sons) {
-          access(son);
+          access(son, actualTime);
           if(son->PT_max != maxSon) {
             auto np = son->PT_max->pairOfMax;
             np->saddle = that;
-            np->itToEvent
-              = swapQueue.insert({crossTime(son->PT_max, that->PT_max),
-                                  {NULL, NULL, true, np
+            np->itToEvent = swapQueue.insert(
+              {crossTime(son->PT_max, that->PT_max, actualTime),
+               {NULL, NULL, true, np
 #ifndef NODEBUG
-                                   ,
-                                   actualTime, that->PT_max
+                ,
+                actualTime, that->PT_max
 #endif
-                                  }});
+               }});
           }
         }
       }
@@ -561,11 +574,11 @@ namespace ttk {
       = globMin * 1.01; // globMin < -1
     globRoot->actualMax = globRoot->PT_max = globRoot;
 
-    link(globTop, globRoot);
+    link(globTop, globRoot, actualTime);
 
     auto oldRoot = &treeData[insertOrder[nbNodes - 1]];
-    link(oldRoot, globRoot);
-    access(oldRoot);
+    link(oldRoot, globRoot, actualTime);
+    access(oldRoot, actualTime);
     auto np = oldRoot->PT_max->pairOfMax;
     np->saddle = globRoot;
     np->itToEvent = swapQueue.insert({2.,
@@ -576,12 +589,13 @@ namespace ttk {
 #endif
                                       }});
 
-    return treeData;
+    return std::move(returnVals);
   }
 
   // maybe this will be over some value yet to be inserted...
   // Not for maxSwap anymore, but maybe treeSwap
-  void setActuTime(double eventTime) {
+  void
+    setActuTime(double eventTime, EventQueue &swapQueue, double &actualTime) {
     const double oldActualTime[[maybe_unused]] = actualTime;
 
     actualTime = eventTime + (swapQueue.begin()->first - eventTime) / 16777216.;
@@ -597,11 +611,14 @@ namespace ttk {
         }
       }
     }
-    if(ceil(actualTime * 10000) != ceil(oldActualTime * 10000))
+#ifndef NOTIMEDISPLAY
+    if(ceil(actualTime * 1000) != ceil(oldActualTime * 1000))
       std::cout << "Time : " << actualTime << endl;
+#endif
   }
 
-  void loopQueue() {
+  void loopQueue(EventQueue &swapQueue) {
+    double actualTime = 0.;
 #ifndef NODEBUG
     std::cout << "queue size " << swapQueue.size() << " starting at "
               << swapQueue.begin()->first << endl;
@@ -631,12 +648,13 @@ namespace ttk {
 
       if(event.isMaxSwap) {
         MergeTreeLinkCutNode *theSaddle = event.pairSwap->saddle;
-        access(theSaddle);
+        access(theSaddle, actualTime);
 
 #ifndef NODEBUG
         if(theSaddle->MT_sons.size() > 2) {
           cerr << "Multiple saddle pair swap !" << endl;
-          double lol = crossTime(theSaddle->PT_max, event.pairSwap->max);
+          double lol
+            = crossTime(theSaddle->PT_max, event.pairSwap->max, actualTime);
           cerr << "Has " << theSaddle->MT_sons.size() << " sons, swap time "
                << lol << endl;
         }
@@ -644,7 +662,7 @@ namespace ttk {
 
         MergeTreeLinkCutNode *theOldMax = theSaddle->PT_max;
 
-        if(updatePairEventTime(event.pairSwap))
+        if(updatePairEventTime(event.pairSwap, swapQueue, actualTime))
           continue;
 
 #ifndef NODEBUG
@@ -653,13 +671,14 @@ namespace ttk {
         MergeTreeLinkCutNode *newMax = event.pairSwap->max;
 
         MergeTreeLinkCutNode *newSad = theOldMax->pairOfMax->saddle;
-        access(newSad);
+        access(newSad, actualTime);
 #ifndef NODEBUG
         if(theOldMax->pairOfMax->saddle->MT_sons.size() > 2) {
           cerr << "pair swap into a multiple saddle !" << endl;
-          double lol
-            = crossTime(theOldMax->pairOfMax->saddle->PT_max, theOldMax);
-          double lol2 = crossTime(theOldMax->pairOfMax->saddle->PT_max, newMax);
+          double lol = crossTime(
+            theOldMax->pairOfMax->saddle->PT_max, theOldMax, actualTime);
+          double lol2 = crossTime(
+            theOldMax->pairOfMax->saddle->PT_max, newMax, actualTime);
           cerr << "Has " << theSaddle->MT_sons.size() << " sons, swap time was "
                << lol << " and will be " << lol2 << endl;
         }
@@ -673,16 +692,16 @@ namespace ttk {
         std::swap(theOldMax->pairOfMax->saddle, newMax->pairOfMax->saddle);
         std::swap(
           theOldMax->pairOfMax->idFirstMax, newMax->pairOfMax->idFirstMax);
-        updatePairEventTime(newMax->pairOfMax);
-        setActuTime(eventTime);
-        access(theSaddle);
-        access(newSad);
+        updatePairEventTime(newMax->pairOfMax, swapQueue, actualTime);
+        setActuTime(eventTime, swapQueue, actualTime);
+        access(theSaddle, actualTime);
+        access(newSad, actualTime);
         swapQueue.erase(theOldMax->pairOfMax->itToEvent);
         theOldMax->pairOfMax->itToEvent
           = swapQueue.insert({2., {NULL, NULL, true, theOldMax->pairOfMax}});
       } else {
-        setActuTime(eventTime);
-        event.leafing->swapWithSon(event.rooting);
+        setActuTime(eventTime, swapQueue, actualTime);
+        event.leafing->swapWithSon(event.rooting, swapQueue, actualTime);
       }
       if(actualTime >= swapQueue.begin()->first) {
         std::cerr << "ALERT : possible time inconsistency, inserted event "

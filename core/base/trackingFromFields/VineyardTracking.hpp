@@ -81,8 +81,10 @@ namespace ttk {
     int actuSon;
     bool hasRecentSonElseInsert(MergeTreeLinkCutNode *theSon) {
       for(int i = 0; i < PAST_SON_SIZE; ++i)
-        if(pastSons[i] == theSon)
+        if(pastSons[i] == theSon) {
+          actuSon = i;
           return true;
+        }
       pastSons[++actuSon % PAST_SON_SIZE] = theSon;
       return false;
     }
@@ -97,10 +99,18 @@ namespace ttk {
       MT_sons.insert(son);
       ttk::link(son, this);
     } // */
-    MergeTreeLinkCutNode() {
+    MergeTreeLinkCutNode()
+      : ST_parent(NULL), ST_left(NULL), ST_right(NULL), PT_parent(NULL),
+        PT_sons(), MT_parent(NULL), MT_sons(), upperLink(), scalarStart(42.),
+        scalarEnd(-42.), actualMax(NULL), PT_max(NULL), pairOfMax(NULL),
+        actuSon() {
+      for(int i = 0; i < PAST_SON_SIZE; ++i)
+        pastSons[i] = NULL;
     }
 
-    void swapWithSon(MergeTreeLinkCutNode *son);
+    void swapWithSon(MergeTreeLinkCutNode *son,
+                     EventQueue &swapQueue,
+                     const double actualTime);
   };
 
   struct SwapEvent {
@@ -119,10 +129,11 @@ namespace ttk {
    *
    */
   // TODO have a -inf node
-  std::vector<MergeTreeLinkCutNode> buildTree(AbstractTriangulation *grid,
-                                              double *scalarsStart,
-                                              double *scalarsEnd);
+  std::pair<std::vector<MergeTreeLinkCutNode>, EventQueue>
+    buildTree(const AbstractTriangulation *grid,
+              double *scalarsStart,
+              double *scalarsEnd);
 
-  void loopQueue();
+  void loopQueue(EventQueue &swapQueue);
 
 } // namespace ttk

@@ -53,74 +53,98 @@ int ttkTrackingFromFields::trackWithVineyards(
   costScalars->SetName("Cost");
   matchTypeScalars->SetName("MatchType");
 
-  auto res
-    = ttk::buildTree(triangulation, (double *)inputData_[fieldNumber - 2],
-                     (double *)inputData_[fieldNumber - 1]);
+  SimplexId nbNodes = triangulation->getNumberOfVertices();
+  triangulation->preconditionVertexNeighbors();
 
-  std::map<SimplexId, std::pair<double, double>> startPairs;
-  for(SimplexId i = 0; i < res.size(); ++i) {
-    if(res[i].pairOfMax != NULL)
-      startPairs.insert({i,
-                         {res[i].pairOfMax->saddle->scalarStart,
-                          res[i].pairOfMax->max->scalarEnd}});
-  }
+#ifndef NONOISE
+  srand(42); // Try 42 for bug at time 0.00996
+  for(int idFieldStart = 0; idFieldStart < fieldNumber; ++idFieldStart)
+    for(int i = 0; i < nbNodes; ++i)
+      ((double *)inputData_[idFieldStart])[i]
+        += (rand() - RAND_MAX / 2.) / (RAND_MAX * 1000.);
+#endif
 
-  ttk::loopQueue();
   double globalCost = 0.0;
+#pragma omp parallel for
+  for(int idFieldStart = 0; idFieldStart < fieldNumber - 1; ++idFieldStart) {
+    auto res = ttk::buildTree(triangulation, (double *)inputData_[idFieldStart],
+                              (double *)inputData_[idFieldStart + 1]);
+    auto &nodesVec = res.first;
+    ttk::EventQueue &events = res.second;
 
-  auto addPair = [&](SimplexId start, SimplexId end,
-                     std::pair<double, double> startPair,
-                     std::pair<double, double> endPair) {
-    int typeOfMatch = 1; // NORMAL
-    if(start == -1) {
-      start = end;
-      typeOfMatch = 0; // CREATION
+    std::map<SimplexId, std::pair<double, double>> startPairs;
+    for(SimplexId i = 0; i < nodesVec.size(); ++i) {
+      if(nodesVec[i].pairOfMax != NULL)
+        startPairs.insert({i,
+                           {nodesVec[i].pairOfMax->saddle->scalarStart,
+                            nodesVec[i].pairOfMax->max->scalarEnd}});
     }
-    if(end == -1) {
-      end = start;
-      typeOfMatch = 2; // DELETION
-    }
-    float startCoord[3], endCoord[3];
-    triangulation->getVertexPoint(
-      start, startCoord[0], startCoord[1], startCoord[2]);
-    triangulation->getVertexPoint(end, endCoord[0], endCoord[1], endCoord[2]);
 
-    if(UseGeometricSpacing) {
-      startCoord[2] += Spacing * (fieldNumber - 2);
-      endCoord[2] += Spacing * (fieldNumber - 1);
-    }
-    points->InsertNextPoint(startCoord[0], startCoord[1], startCoord[2]);
-    points->InsertNextPoint(endCoord[0], endCoord[1], endCoord[2]);
-    vtkIdType line[2]
-      = {points->GetNumberOfPoints() - 2, points->GetNumberOfPoints() - 1};
-    persistenceDiagram->InsertNextCell(VTK_LINE, 2, line);
-    matchTypeScalars->InsertNextTuple1(typeOfMatch);
-    double costSquared
-      = (startPair.first - endPair.first) * (startPair.first - endPair.first)
-        + (startPair.second - endPair.second)
-            * (startPair.second - endPair.second);
-    globalCost += costSquared;
-    costScalars->InsertNextTuple1(std::sqrt(costSquared));
-  };
-  for(SimplexId i = 0; i < res.size(); ++i) {
-    if(res[i].pairOfMax != NULL) {
-      std::pair<double, double> endPair{
-        res[i].pairOfMax->saddle->scalarEnd, res[i].pairOfMax->max->scalarEnd};
-      double middle = (endPair.first + endPair.second) / 2.;
-      std::pair<double, double> startPair{middle, middle};
-      if(res[i].pairOfMax->idFirstMax != -1) {
-        auto it = startPairs.find(res[i].pairOfMax->idFirstMax);
-        startPair = it->second;
-        startPairs.erase(it);
+    ttk::loopQueue(events);
+    double localCost = 0.0;
+
+#pragma omp critical
+    {
+      auto addPair = [&](SimplexId start, SimplexId end,
+                         std::pair<double, double> startPair,
+                         std::pair<double, double> endPair) {
+        int typeOfMatch = 1; // NORMAL
+        if(start == -1) {
+          start = end;
+          typeOfMatch = 0; // CREATION
+        }
+        if(end == -1) {
+          end = start;
+          typeOfMatch = 2; // DELETION
+        }
+        float startCoord[3], endCoord[3];
+        triangulation->getVertexPoint(
+          start, startCoord[0], startCoord[1], startCoord[2]);
+        triangulation->getVertexPoint(
+          end, endCoord[0], endCoord[1], endCoord[2]);
+
+        if(UseGeometricSpacing) {
+          startCoord[2] += Spacing * (idFieldStart);
+          endCoord[2] += Spacing * (idFieldStart + 1);
+        }
+        points->InsertNextPoint(startCoord[0], startCoord[1], startCoord[2]);
+        points->InsertNextPoint(endCoord[0], endCoord[1], endCoord[2]);
+        vtkIdType line[2]
+          = {points->GetNumberOfPoints() - 2, points->GetNumberOfPoints() - 1};
+        persistenceDiagram->InsertNextCell(VTK_LINE, 2, line);
+        matchTypeScalars->InsertNextTuple1(typeOfMatch);
+        double costSquared = (startPair.first - endPair.first)
+                               * (startPair.first - endPair.first)
+                             + (startPair.second - endPair.second)
+                                 * (startPair.second - endPair.second);
+        localCost += costSquared;
+        globalCost += costSquared;
+        costScalars->InsertNextTuple1(std::sqrt(costSquared));
+      };
+      for(SimplexId i = 0; i < nodesVec.size(); ++i) {
+        if(nodesVec[i].pairOfMax != NULL) {
+          std::pair<double, double> endPair{
+            nodesVec[i].pairOfMax->saddle->scalarEnd,
+            nodesVec[i].pairOfMax->max->scalarEnd};
+          double middle = (endPair.first + endPair.second) / 2.;
+          std::pair<double, double> startPair{middle, middle};
+          if(nodesVec[i].pairOfMax->idFirstMax != -1) {
+            auto it = startPairs.find(nodesVec[i].pairOfMax->idFirstMax);
+            startPair = it->second;
+            startPairs.erase(it);
+          }
+          addPair(nodesVec[i].pairOfMax->idFirstMax, i, startPair, endPair);
+        }
       }
-      addPair(res[i].pairOfMax->idFirstMax, i, startPair, endPair);
+      for(auto it : startPairs) {
+        auto stp = it.second;
+        double middle = (stp.first + stp.second) / 2.;
+        std::pair<double, double> endPair{middle, middle};
+        addPair(-1, it.first, stp, endPair);
+      }
+      std::cout << "Local cost for match " << idFieldStart << " : "
+                << globalCost << std::endl;
     }
-  }
-  for(auto it : startPairs) {
-    auto stp = it.second;
-    double middle = (stp.first + stp.second) / 2.;
-    std::pair<double, double> endPair{middle, middle};
-    addPair(-1, it.first, stp, endPair);
   }
 
   std::cout << "Global cost : " << globalCost << std::endl;
