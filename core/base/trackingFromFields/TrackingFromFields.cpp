@@ -25,8 +25,12 @@ namespace ttk {
               const double actualTime) {
     if(option == NULL)
       return;
-    const double dVal = getVal(dest, actualTime),
-                 oVal = getVal(option->actualMax, actualTime);
+    double dVal = getVal(dest, actualTime),
+           oVal = getVal(option->actualMax, actualTime);
+    if(dVal == oVal) { // Oops
+      dVal = getVal(dest, actualTime + 0.000001);
+      oVal = getVal(option->actualMax, actualTime + 0.000001);
+    }
     if(dVal < oVal || (dVal == oVal && (dest < option->actualMax)))
       dest = option->actualMax;
   }
@@ -251,6 +255,15 @@ namespace ttk {
                            const double actualTime) {
     access(ofThePair->saddle, actualTime);
 
+#ifndef NODEBUG
+    if(ofThePair->saddle->PT_max == ofThePair->max) {
+      auto val = &(cerr << "A pair is gonna try to swap with itself !");
+      cerr << val->bad();
+      val = &((*val) << endl);
+      throw "MDR";
+    }
+#endif
+
     double newTime = crossTime(ofThePair->saddle->PT_max, ofThePair->max);
     if(ofThePair->saddle->PT_max->scalarEnd >= ofThePair->max->scalarEnd)
       newTime = 2.;
@@ -272,13 +285,13 @@ namespace ttk {
       // Grrrrr. It's a whole copy for nothing :'(
       SwapEvent copy = *ofThePair->itToEvent;
       copy.timestamp = newTime;
+#ifndef NODEBUG
+      copy.timeOfLastUpdate = actualTime;
+      copy.wasLosingTo = ofThePair->saddle->PT_max;
+#endif
       auto newIt = swapQueue.insert(copy).first;
       swapQueue.erase(ofThePair->itToEvent);
       ofThePair->itToEvent = newIt;
-#endif
-#ifndef NODEBUG
-      ofThePair->itToEvent->timeOfLastUpdate = actualTime;
-      ofThePair->itToEvent->wasLosingTo = ofThePair->saddle->PT_max;
 #endif
       return true;
     }
@@ -462,7 +475,13 @@ namespace ttk {
           std::swap(winningPair, losingPairs.back());
       }
     }
+    MergeTreeLinkCutNode *oldFarSaddle = NULL;
     for(auto branch : losingPairs) {
+      if(branch->actualMax->pairOfMax->saddle != this
+         && branch->actualMax->pairOfMax->saddle != son) {
+        std::cerr << "found a saddle where we erase a saddle" << endl;
+        oldFarSaddle = branch->actualMax->pairOfMax->saddle;
+      }
       branch->actualMax->pairOfMax->saddle = this;
       toUpdateTime.push_back(branch->actualMax->pairOfMax);
     }
@@ -476,13 +495,25 @@ namespace ttk {
         std::swap(winningPair, losingPairs.back());
     }
     for(auto branch : losingPairs) {
+      if(branch->actualMax->pairOfMax->saddle != this
+         && branch->actualMax->pairOfMax->saddle != son) {
+        std::cerr << "found a saddle where we erase a saddle, definitely"
+                  << endl;
+        oldFarSaddle = branch->actualMax->pairOfMax->saddle;
+      }
       branch->actualMax->pairOfMax->saddle = son;
       toUpdateTime.push_back(branch->actualMax->pairOfMax);
     }
 
     if(winningPair->actualMax->pairOfMax->saddle == this
-       || winningPair->actualMax->pairOfMax->saddle == son)
-      std::cerr << "found a saddle where noone wins" << endl;
+       || winningPair->actualMax->pairOfMax->saddle == son) {
+      std::cerr << "found a saddle where noone pretends to win" << endl;
+      if(oldFarSaddle) {
+        std::cerr << "Found a candidate to correct that" << endl;
+        winningPair->actualMax->pairOfMax->saddle = oldFarSaddle;
+        toUpdateTime.push_back(winningPair->actualMax->pairOfMax);
+      }
+    }
 
     for(auto nodepair : toUpdateTime)
       updatePairEventTime(nodepair, swapQueue, actualTime);
@@ -692,14 +723,32 @@ namespace ttk {
         std::swap(theOldMax->pairOfMax->saddle, newMax->pairOfMax->saddle);
         std::swap(
           theOldMax->pairOfMax->idFirstMax, newMax->pairOfMax->idFirstMax);
-        updatePairEventTime(newMax->pairOfMax, swapQueue, actualTime);
-        setActuTime(eventTime, swapQueue, actualTime);
-        access(theSaddle, actualTime);
-        access(newSad, actualTime);
         swapQueue.erase(theOldMax->pairOfMax->itToEvent);
         theOldMax->pairOfMax->itToEvent
-          = swapQueue.insert({2., NULL, NULL, true, theOldMax->pairOfMax})
+          = swapQueue
+              .insert({2., NULL, NULL, true, theOldMax->pairOfMax
+#ifndef NODEBUG
+                       ,
+                       actualTime, newMax
+#endif
+
+              })
               .first;
+        swapQueue.erase(newMax->pairOfMax->itToEvent);
+        newMax->pairOfMax->itToEvent
+          = swapQueue
+              .insert({2., NULL, NULL, true, newMax->pairOfMax
+#ifndef NODEBUG
+                       ,
+                       actualTime, NULL
+#endif
+
+              })
+              .first;
+        setActuTime(eventTime, swapQueue, actualTime);
+        update(theSaddle, actualTime);
+        update(newSad, actualTime);
+        updatePairEventTime(newMax->pairOfMax, swapQueue, actualTime);
       } else {
         swapQueue.erase(eventIt);
         if(event.leafing->MT_sons.count(event.rooting) == 0)
