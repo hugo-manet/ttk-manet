@@ -226,12 +226,12 @@ namespace ttk {
     if(son->scalarEnd > parent->scalarEnd || crossing >= 1.)
       return;
     if(crossing > 0. || (crossing == 0. && son->scalarEnd > parent->scalarEnd))
-      swapQueue.insert({crossing, SwapEvent{son, parent, false, NULL
+      swapQueue.insert({crossing, son, parent, false, NULL
 #ifndef NODEBUG
-                                            ,
-                                            actualTime, NULL
+                        ,
+                        actualTime, NULL
 #endif
-                                  }});
+      });
   }
   void newLink(MergeTreeLinkCutNode *const son,
                MergeTreeLinkCutNode *const parent,
@@ -255,7 +255,7 @@ namespace ttk {
     if(ofThePair->saddle->PT_max->scalarEnd >= ofThePair->max->scalarEnd)
       newTime = 2.;
 
-    if(newTime != ofThePair->itToEvent->first) {
+    if(newTime != ofThePair->itToEvent->timestamp) {
 #ifndef NODEBUG
       if(newTime <= actualTime) {
         auto val = &(cerr << "Updated a time into a time earlier than now !");
@@ -270,13 +270,15 @@ namespace ttk {
       ofThePair->itToEvent = swapQueue.insert(move(handle));
 #else
       // Grrrrr. It's a whole copy for nothing :'(
-      auto newIt = swapQueue.emplace(newTime, ofThePair->itToEvent->second);
+      SwapEvent copy = *ofThePair->itToEvent;
+      copy.timestamp = newTime;
+      auto newIt = swapQueue.insert(copy).first;
       swapQueue.erase(ofThePair->itToEvent);
       ofThePair->itToEvent = newIt;
 #endif
 #ifndef NODEBUG
-      ofThePair->itToEvent->second.timeOfLastUpdate = actualTime;
-      ofThePair->itToEvent->second.wasLosingTo = ofThePair->saddle->PT_max;
+      ofThePair->itToEvent->timeOfLastUpdate = actualTime;
+      ofThePair->itToEvent->wasLosingTo = ofThePair->saddle->PT_max;
 #endif
       return true;
     }
@@ -430,13 +432,14 @@ namespace ttk {
       // New local max
       this->pairOfMax = new NodePair{this, son, -1, swapQueue.end()};
       this->pairOfMax->itToEvent
-        = swapQueue.insert({2.,
-                            {NULL, NULL, true, this->pairOfMax
+        = swapQueue
+            .insert({2., NULL, NULL, true, this->pairOfMax
 #ifndef NODEBUG
-                             ,
-                             actualTime, son->PT_max
+                     ,
+                     actualTime, son->PT_max
 #endif
-                            }});
+            })
+            .first;
 
       updatePairEventTime(this->pairOfMax, swapQueue, actualTime);
       return;
@@ -557,14 +560,15 @@ namespace ttk {
           if(son->PT_max != maxSon) {
             auto np = son->PT_max->pairOfMax;
             np->saddle = that;
-            np->itToEvent
-              = swapQueue.insert({crossTime(son->PT_max, that->PT_max),
-                                  {NULL, NULL, true, np
+            np->itToEvent = swapQueue
+                              .insert({crossTime(son->PT_max, that->PT_max),
+                                       NULL, NULL, true, np
 #ifndef NODEBUG
-                                   ,
-                                   actualTime, that->PT_max
+                                       ,
+                                       actualTime, that->PT_max
 #endif
-                                  }});
+                              })
+                              .first;
           }
         }
       }
@@ -583,15 +587,16 @@ namespace ttk {
     access(oldRoot, actualTime);
     auto np = oldRoot->PT_max->pairOfMax;
     np->saddle = globRoot;
-    np->itToEvent = swapQueue.insert({2.,
-                                      {NULL, NULL, true, np
+    np->itToEvent = swapQueue
+                      .insert({2., NULL, NULL, true, np
 #ifndef NODEBUG
-                                       ,
-                                       actualTime, NULL
+                               ,
+                               actualTime, NULL
 #endif
-                                      }});
+                      })
+                      .first;
 
-    return std::move(returnVals);
+    return returnVals;
   }
 
   // maybe this will be over some value yet to be inserted...
@@ -600,11 +605,14 @@ namespace ttk {
     setActuTime(double eventTime, EventQueue &swapQueue, double &actualTime) {
     const double oldActualTime[[maybe_unused]] = actualTime;
 
-    actualTime = eventTime + (swapQueue.begin()->first - eventTime) / 16777216.;
+    actualTime
+      = eventTime + (swapQueue.begin()->timestamp - eventTime) / 16777216.;
     if(actualTime == eventTime) {
-      actualTime = eventTime + (swapQueue.begin()->first - eventTime) / 2048.;
+      actualTime
+        = eventTime + (swapQueue.begin()->timestamp - eventTime) / 2048.;
       if(actualTime == eventTime) {
-        actualTime = eventTime + (swapQueue.begin()->first - eventTime) / 2.;
+        actualTime
+          = eventTime + (swapQueue.begin()->timestamp - eventTime) / 2.;
         if(actualTime == eventTime) {
           std::cerr << "ALERT : possible numerical instability at time "
                     << actualTime << std::endl;
@@ -623,24 +631,16 @@ namespace ttk {
     double actualTime = 0.;
 #ifndef NODEBUG
     std::cout << "queue size " << swapQueue.size() << " starting at "
-              << swapQueue.begin()->first << endl;
+              << swapQueue.begin()->timestamp << endl;
 #endif
-    swapQueue.insert({1., {NULL, NULL, false, NULL}});
+    swapQueue.insert({1., NULL, NULL, false, NULL});
 
     cerr << std::setprecision(15);
     // TODO switch back to 1.
-    while(swapQueue.begin()->first < 1.) {
+    while(swapQueue.begin()->timestamp < 1.) {
       auto eventIt = swapQueue.begin();
-      auto event = eventIt->second;
-      double eventTime = eventIt->first;
-
-      while(eventIt->first == eventTime && !event.isMaxSwap
-            && event.rooting == eventIt->second.rooting
-            && event.leafing == eventIt->second.leafing) {
-        swapQueue.erase(eventIt);
-        eventIt = swapQueue.begin();
-      } // erase duplicates. Don't erase maxSwaps, those are persistent.
-
+      auto event = *eventIt;
+      double eventTime = event.timestamp;
 #ifndef NODEBUG
       if(event.isMaxSwap)
         std::cout << "queue size " << swapQueue.size() << ", event "
@@ -698,27 +698,29 @@ namespace ttk {
         access(newSad, actualTime);
         swapQueue.erase(theOldMax->pairOfMax->itToEvent);
         theOldMax->pairOfMax->itToEvent
-          = swapQueue.insert({2., {NULL, NULL, true, theOldMax->pairOfMax}});
+          = swapQueue.insert({2., NULL, NULL, true, theOldMax->pairOfMax})
+              .first;
       } else {
+        swapQueue.erase(eventIt);
         if(event.leafing->MT_sons.count(event.rooting) == 0)
           continue; // This event is outdated
         setActuTime(eventTime, swapQueue, actualTime);
         event.leafing->swapWithSon(event.rooting, swapQueue, actualTime);
       }
-      if(actualTime >= swapQueue.begin()->first) {
+      if(actualTime >= swapQueue.begin()->timestamp) {
         std::cerr << "ALERT : possible time inconsistency, inserted event "
                      "before actual time."
                   << endl;
 #ifndef NODEBUG
-        auto nextEv = swapQueue.begin()->second;
+        auto nextEv = *swapQueue.begin();
         if(nextEv.isMaxSwap)
           std::cerr << "Next event (max) :" << nextEv.pairSwap->max << " ^, "
                     << nextEv.pairSwap->saddle << " sad ; at time "
-                    << swapQueue.begin()->first << endl;
+                    << nextEv.timestamp << endl;
         else
           std::cerr << "Next event (tree) :" << nextEv.leafing->numForDebug
                     << " ^, " << nextEv.rooting->numForDebug << " v ; at time "
-                    << swapQueue.begin()->first << endl;
+                    << nextEv.timestamp << endl;
 
         if(event.isMaxSwap)
           std::cerr << "Old event (max) :" << event.pairSwap->max << " ^, "
@@ -728,7 +730,7 @@ namespace ttk {
           std::cerr << "Old event (tree) :" << event.leafing->numForDebug
                     << " ^, " << event.rooting->numForDebug << " v ; at time "
                     << eventTime << endl;
-        if(eventTime == swapQueue.begin()->first)
+        if(eventTime == nextEv.timestamp)
           cerr << "Time is the same" << endl;
 #endif
       }

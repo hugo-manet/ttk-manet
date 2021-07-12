@@ -25,7 +25,7 @@ namespace ttk {
   struct MergeTreeLinkCutNode;
   struct SwapEvent;
 
-  typedef std::multimap<double, SwapEvent> EventQueue;
+  typedef std::set<SwapEvent> EventQueue;
   /*
   void update(MergeTreeLinkCutNode * const  x);
   void rotr(MergeTreeLinkCutNode * const x);
@@ -114,11 +114,30 @@ namespace ttk {
   };
 
   struct SwapEvent {
+    double timestamp;
+
     MergeTreeLinkCutNode *rooting;
     MergeTreeLinkCutNode *leafing;
     bool isMaxSwap;
     NodePair *pairSwap;
 
+    bool operator<(const SwapEvent &other) const {
+      if(timestamp != other.timestamp)
+        return timestamp < other.timestamp;
+
+      if(isMaxSwap && !other.isMaxSwap)
+        return true;
+
+      if(!isMaxSwap && other.isMaxSwap)
+        return false;
+
+      if(isMaxSwap) // both
+        return pairSwap < other.pairSwap;
+
+      if(rooting != other.rooting)
+        return rooting < other.rooting;
+      return leafing < other.leafing;
+    }
 #ifndef NODEBUG
     double timeOfLastUpdate;
     MergeTreeLinkCutNode *wasLosingTo;
