@@ -14,12 +14,44 @@
 
 namespace ttk {
 
-  double getVal(const MergeTreeLinkCutNode *const node,
-                const double actualTime) {
+  constexpr double getVal(const MergeTreeLinkCutNode *const node,
+                          const double actualTime) {
     return node->scalarStart
            + actualTime * (node->scalarEnd - node->scalarStart);
   }
+  constexpr double crossTimeSwapped(const MergeTreeLinkCutNode *const son,
+                                    const MergeTreeLinkCutNode *const parent) {
+#define DENOM \
+  (parent->scalarEnd - parent->scalarStart - son->scalarEnd + son->scalarStart)
+#define REALCROSS ((son->scalarStart - parent->scalarStart) / DENOM)
+    return (DENOM != 0.)
+             ? ((0. <= REALCROSS && REALCROSS <= 2.) ? REALCROSS : 2.)
+             : 2.;
+  }
+  constexpr double crossTime(const MergeTreeLinkCutNode *const son,
+                             const MergeTreeLinkCutNode *const parent) {
+#define DENOM \
+  (parent->scalarEnd - parent->scalarStart - son->scalarEnd + son->scalarStart)
+#define REALCROSS ((son->scalarStart - parent->scalarStart) / DENOM)
+    return (son->scalarStart > parent->scalarStart)
+             ? crossTimeSwapped(son, parent)
+             : crossTimeSwapped(parent, son);
+  }
+  double crossTimeNC(const MergeTreeLinkCutNode *const son,
+                     const MergeTreeLinkCutNode *const parent) {
 
+    return crossTime(son, parent);
+  }
+
+  void setMaxFinal(MergeTreeLinkCutNode *&dest,
+                   const MergeTreeLinkCutNode *const option,
+                   const double actualTime) {
+    const double dVal = getVal(dest, actualTime),
+                 oVal = getVal(option->actualMax, actualTime);
+
+    if(dVal < oVal)
+      dest = option->actualMax;
+  }
   void setMax(MergeTreeLinkCutNode *&dest,
               const MergeTreeLinkCutNode *const option,
               const double actualTime) {
@@ -27,11 +59,17 @@ namespace ttk {
       return;
     double dVal = getVal(dest, actualTime),
            oVal = getVal(option->actualMax, actualTime);
-    if(dVal == oVal) { // Oops
-      dVal = getVal(dest, actualTime + 0.000001);
-      oVal = getVal(option->actualMax, actualTime + 0.000001);
+    if(dVal - oVal < 1.e-10 && oVal - dVal < 1.e-10) {
+      double cT = crossTime(dest, option->actualMax);
+      if(cT != 2) {
+        if(cT < actualTime) // <= ?
+          setMaxFinal(dest, option, 1.);
+        else
+          setMaxFinal(dest, option, 0.);
+        return;
+      }
     }
-    if(dVal < oVal || (dVal == oVal && (dest < option->actualMax)))
+    if(dVal < oVal)
       dest = option->actualMax;
   }
 
@@ -205,20 +243,6 @@ namespace ttk {
     return access(y, actualTime);
   }
 
-  double crossTime(MergeTreeLinkCutNode *son, MergeTreeLinkCutNode *parent) {
-    double crossing = -1.;
-    if(son->scalarEnd - son->scalarStart - parent->scalarEnd
-         + parent->scalarStart
-       != 0.)
-      crossing = (son->scalarStart - parent->scalarStart)
-                 / (parent->scalarEnd - parent->scalarStart - son->scalarEnd
-                    + son->scalarStart);
-
-    if(crossing < 0. || crossing > 2.)
-      crossing = 2.; // never gonna happen
-
-    return crossing;
-  }
   void createTreeSwapEvent(MergeTreeLinkCutNode *const son,
                            MergeTreeLinkCutNode *const parent,
                            EventQueue &swapQueue,
@@ -388,6 +412,27 @@ namespace ttk {
 
     MergeTreeLinkCutNode *const myParent = this->MT_parent;
     cut(this, actualTime);
+
+#ifndef NOCHECKSADDLES
+    if(nbSons >= 2) {
+      int nbDyingMe = 0;
+      for(auto mySonImplicit : this->PT_sons)
+        if(mySonImplicit->actualMax->pairOfMax->saddle == this)
+          ++nbDyingMe;
+
+      if(nbDyingMe != this->PT_sons.size() - 1)
+        std::cerr << "Invariant invalid for me : " <<
+#ifndef NODEBUG
+          this->numForDebug
+#else
+          this
+#endif
+                  << " because " << nbDyingMe
+                  << " die instead of nbGrandson - 1 = "
+                  << (this->PT_sons.size() - 1) << endl;
+    }
+#endif
+
     cut(son, actualTime);
 
     // We need a temporary copy because iterators will be invalidated when we
@@ -396,6 +441,26 @@ namespace ttk {
       son->MT_sons.begin(), son->MT_sons.end());
     for(auto grandson : listOfGrandsons)
       cut(grandson, actualTime);
+
+#ifndef NOCHECKSADDLES
+    if(nbGrandsons >= 2) {
+      int nbDying = 0;
+      for(auto grandson : listOfGrandsons)
+        if(grandson->actualMax->pairOfMax->saddle == son)
+          ++nbDying;
+
+      if(nbDying != listOfGrandsons.size() - 1)
+        std::cerr << "Invariant invalid for son : " <<
+#ifndef NODEBUG
+          son->numForDebug
+#else
+          son
+#endif
+                  << " because " << nbDying
+                  << " die instead of nbGrandson - 1 = "
+                  << (listOfGrandsons.size() - 1) << endl;
+    }
+#endif
 
     std::set<MergeTreeLinkCutNode *> seenRoots;
     for(auto neigh : upperLink)
@@ -455,13 +520,15 @@ namespace ttk {
     std::vector<MergeTreeLinkCutNode *> losingPairs;
     std::vector<NodePair *> toUpdateTime;
     MergeTreeLinkCutNode *winningPair = NULL;
+    MergeTreeLinkCutNode *theRealMax = NULL;
     for(auto branch : this->PT_sons) {
-      if(winningPair == NULL) // Exactly the first iteration
+      if(winningPair == NULL) { // Exactly the first iteration
         winningPair = branch;
-      else {
+        theRealMax = branch->actualMax;
+      } else {
         losingPairs.push_back(branch);
-        if(getVal(branch->actualMax, actualTime)
-           > getVal(winningPair->actualMax, actualTime))
+        setMax(theRealMax, branch, actualTime);
+        if(theRealMax == branch->actualMax)
           std::swap(winningPair, losingPairs.back());
       }
     }
@@ -480,8 +547,8 @@ namespace ttk {
 
     for(auto branch : son->PT_sons) {
       losingPairs.push_back(branch);
-      if(getVal(branch->actualMax, actualTime)
-         > getVal(winningPair->actualMax, actualTime))
+      setMax(theRealMax, branch, actualTime);
+      if(theRealMax == branch->actualMax)
         std::swap(winningPair, losingPairs.back());
     }
     for(auto branch : losingPairs) {
@@ -648,6 +715,21 @@ namespace ttk {
           std::cerr << "ALERT : possible numerical instability at time "
                     << actualTime << std::endl;
           // TODO +eps is a anticipated hotfix ; to be done better someday
+#ifndef NODEBUG
+          auto nextEv = swapQueue.top();
+          if(nextEv.isMaxSwap)
+            std::cerr << "Next event (max) :"
+                      << nextEv.pairSwap->max->numForDebug << " ^, "
+                      << nextEv.pairSwap->saddle->numForDebug
+                      << " sad ; at time " << nextEv.timestamp << endl;
+          else
+            std::cerr << "Next event (tree) :" << nextEv.leafing->numForDebug
+                      << " ^, " << nextEv.rooting->numForDebug
+                      << " v ; at time " << nextEv.timestamp << endl;
+
+          if(eventTime == nextEv.timestamp)
+            cerr << "Time is the same" << endl;
+#endif
           actualTime += 0.0000000001;
         }
       }
