@@ -8,6 +8,8 @@
 #include "DataTypes.h"
 #include "FTMStructures.h"
 #include "FTMTree_MT.h"
+#include <boost/heap/d_ary_heap.hpp>
+#include <boost/heap/policies.hpp>
 #include <map>
 #include <paraview-5.8/vtkDoubleArray.h>
 #include <paraview-5.8/vtkIntArray.h>
@@ -25,7 +27,12 @@ namespace ttk {
   struct MergeTreeLinkCutNode;
   struct SwapEvent;
 
-  typedef std::set<SwapEvent> EventQueue;
+  typedef boost::heap::d_ary_heap<SwapEvent,
+                                  boost::heap::arity<2>,
+                                  boost::heap::mutable_<true>,
+                                  boost::heap::compare<std::greater<SwapEvent>>>
+    EventQueue;
+
   /*
   void update(MergeTreeLinkCutNode * const  x);
   void rotr(MergeTreeLinkCutNode * const x);
@@ -45,7 +52,7 @@ namespace ttk {
     MergeTreeLinkCutNode *max, *saddle;
     SimplexId idFirstMax;
 
-    EventQueue::iterator itToEvent;
+    EventQueue::handle_type itToEvent;
   };
 
   struct MergeTreeLinkCutNode {
@@ -121,22 +128,22 @@ namespace ttk {
     bool isMaxSwap;
     NodePair *pairSwap;
 
-    bool operator<(const SwapEvent &other) const {
+    bool operator>(const SwapEvent &other) const {
       if(timestamp != other.timestamp)
-        return timestamp < other.timestamp;
+        return timestamp > other.timestamp;
 
       if(isMaxSwap && !other.isMaxSwap)
-        return true;
-
-      if(!isMaxSwap && other.isMaxSwap)
         return false;
 
+      if(!isMaxSwap && other.isMaxSwap)
+        return true;
+
       if(isMaxSwap) // both
-        return pairSwap < other.pairSwap;
+        return pairSwap > other.pairSwap;
 
       if(rooting != other.rooting)
-        return rooting < other.rooting;
-      return leafing < other.leafing;
+        return rooting > other.rooting;
+      return leafing > other.leafing;
     }
 #ifndef NODEBUG
     double timeOfLastUpdate;
