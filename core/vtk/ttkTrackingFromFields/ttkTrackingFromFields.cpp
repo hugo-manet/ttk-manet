@@ -66,9 +66,8 @@ int ttkTrackingFromFields::trackWithVineyards(
 #endif
 
   double globalCost = 0.0;
-  omp_set_dynamic(1);
   omp_set_num_threads(fieldNumber - 1);
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for
   for(int idFieldStart = 0; idFieldStart < fieldNumber - 1; ++idFieldStart) {
     auto res = ttk::buildTree(triangulation, (double *)inputData_[idFieldStart],
                               (double *)inputData_[idFieldStart + 1]);
