@@ -33,21 +33,6 @@ namespace ttk {
                                   boost::heap::compare<std::greater<SwapEvent>>>
     EventQueue;
 
-  /*
-  void update(MergeTreeLinkCutNode * const  x);
-  void rotr(MergeTreeLinkCutNode * const x);
-  void rotl(MergeTreeLinkCutNode * const x);
-  void splay(MergeTreeLinkCutNode * const x);
-  MergeTreeLinkCutNode *access(MergeTreeLinkCutNode * const x);
-  MergeTreeLinkCutNode *root(MergeTreeLinkCutNode * const x);
-  void cut(MergeTreeLinkCutNode * const x);
-  void link(MergeTreeLinkCutNode * const x, MergeTreeLinkCutNode * const y);
-  MergeTreeLinkCutNode *lca(MergeTreeLinkCutNode * const x, MergeTreeLinkCutNode
-  * const y);
-
-  void newLink(MergeTreeLinkCutNode* const son, MergeTreeLinkCutNode* const
-  parent); // */
-
   struct NodePair {
     MergeTreeLinkCutNode *max, *saddle;
     SimplexId idFirstMax;
@@ -67,14 +52,14 @@ namespace ttk {
     /* Link between splay trees */
     MergeTreeLinkCutNode
       *PT_parent; // if ST root then real parent of path start, else NULL
-    std::set<MergeTreeLinkCutNode *> PT_sons; // inverse of PT_parent
+    std::vector<MergeTreeLinkCutNode *> PT_sons; // inverse of PT_parent
 
     /* Explicit (merge) tree */
     MergeTreeLinkCutNode *MT_parent; // real parent
-    std::set<MergeTreeLinkCutNode *> MT_sons;
+    std::vector<MergeTreeLinkCutNode *> MT_sons;
 
     /* Field geometric structure */
-    std::set<MergeTreeLinkCutNode *> upperLink;
+    std::vector<MergeTreeLinkCutNode *> upperLink;
     double scalarStart, scalarEnd;
 
     MergeTreeLinkCutNode *actualMax;
@@ -96,16 +81,6 @@ namespace ttk {
       return false;
     }
 
-    /*
-    MergeTreeLinkCutNode(double _scalarStart, double _scalarEnd,
-    std::set<MergeTreeLinkCutNode*>& _upperLink) : ST_parent(NULL),
-    ST_left(NULL), ST_right(NULL), PT_parent(NULL), MT_parent(NULL), MT_sons(),
-    upperLink(_upperLink), scalarStart(_scalarStart), scalarEnd(_scalarEnd) {
-      }
-    void addSon(MergeTreeLinkCutNode* son) {
-      MT_sons.insert(son);
-      ttk::link(son, this);
-    } // */
     MergeTreeLinkCutNode()
       : ST_parent(NULL), ST_left(NULL), ST_right(NULL), PT_parent(NULL),
         PT_sons(), MT_parent(NULL), MT_sons(), upperLink(), scalarStart(42.),
