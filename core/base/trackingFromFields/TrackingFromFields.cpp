@@ -749,6 +749,7 @@ namespace ttk {
           if(!doHas(nextEvent.leafing->MT_sons, nextEvent.rooting)) {
             while(!(swapQueue.top() > nextEvent))
               swapQueue.pop();
+            nextEvent.leafing->eraseRecentSons(nextEvent.rooting);
             setActuTime(eventTime, swapQueue, actualTime);
             return;
           }
@@ -903,8 +904,10 @@ namespace ttk {
       } else {
         while(!(swapQueue.top() > event))
           swapQueue.pop();
-        if(!doHas(event.leafing->MT_sons, event.rooting))
+        if(!doHas(event.leafing->MT_sons, event.rooting)) {
+          event.leafing->eraseRecentSons(event.rooting);
           continue; // This event is outdated
+        }
         setActuTime(eventTime, swapQueue, actualTime);
         event.leafing->swapWithSon(event.rooting, swapQueue, actualTime);
         lastRunEvent = eventTime;

@@ -80,6 +80,13 @@ namespace ttk {
       pastSons[++actuSon % PAST_SON_SIZE] = theSon;
       return false;
     }
+    void eraseRecentSons(MergeTreeLinkCutNode *theSon) {
+      for(int i = 0; i < PAST_SON_SIZE; ++i)
+        if(pastSons[i] == theSon) {
+          pastSons[i] = NULL;
+          return;
+        }
+    }
 
     MergeTreeLinkCutNode()
       : ST_parent(NULL), ST_left(NULL), ST_right(NULL), PT_parent(NULL),
