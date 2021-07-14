@@ -13,9 +13,9 @@
 #include <vector>
 
 namespace ttk {
-#define myAssert(x) //funcAssert(x, #x , __LINE__) 
-  void funcAssert(bool val, const char* str, int numLigne) {
-    if (!val) {
+#define myAssert(x) // funcAssert(x, #x , __LINE__)
+  void funcAssert(bool val, const char *str, int numLigne) {
+    if(!val) {
       std::cerr << "ca plante ! " << str << " en ligne " << numLigne << endl;
       std::cerr << ((MergeTreeLinkCutNode *)NULL)->actualMax->MT_sons.size();
     }
@@ -278,7 +278,7 @@ namespace ttk {
 
   MergeTreeLinkCutNode *root(MergeTreeLinkCutNode *x, const double actualTime) {
     access(x, actualTime);
-    
+
     return x->ST_first;
   }
 
@@ -291,7 +291,7 @@ namespace ttk {
     x->ST_first = x;
     myAssert(x->MT_parent->ST_next == x);
     x->MT_parent->ST_next = NULL;
-      
+
     x->ST_left->ST_parent = 0;
     x->ST_left = 0;
 
@@ -397,7 +397,35 @@ namespace ttk {
     }
     return false;
   }
-
+  void doReplaceST_first(std::vector<MergeTreeLinkCutNode *> &theVec,
+                         MergeTreeLinkCutNode *val,
+                         MergeTreeLinkCutNode *newVal) {
+    switch(theVec.size()) {
+      case 1:
+        theVec[0]->ST_first = newVal;
+        return;
+      case 2:
+        if(theVec[0]->ST_first == val)
+          theVec[0]->ST_first = newVal;
+        else
+          theVec[1]->ST_first = newVal;
+        return;
+      case 3:
+        if(theVec[0]->ST_first == val)
+          theVec[0]->ST_first = newVal;
+        else if(theVec[1]->ST_first == val)
+          theVec[1]->ST_first = newVal;
+        else
+          theVec[2]->ST_first = newVal;
+        return;
+      default:
+        for(auto implicitSon : theVec)
+          if(implicitSon->ST_first == val) {
+            implicitSon->ST_first = newVal;
+            return;
+          }
+    }
+  }
   void repairNodeLinks(MergeTreeLinkCutNode *const node,
                        MergeTreeLinkCutNode *const other) {
     // If we see &*node in one of the links, we change it to &*other
@@ -449,17 +477,6 @@ namespace ttk {
         (*node->MT_sons.begin())->MT_parent = node;
     }
 
-    /*
-    // Now for the hard ones
-    if(node->MT_parent->ST_next == other)
-      node->MT_parent->ST_next = node;
-    else
-      for (auto implicitSon : node->MT_parent->PT_sons)
-        if (implicitSon->ST_first == other) {
-          implicitSon->ST_first = node;
-          return;
-        } // */
-
     // we don't repair the values here : this can't be repaired easily
     // so we just update() the nodes afterwards.
   }
@@ -482,19 +499,14 @@ namespace ttk {
 
     repairNodeLinks(that, son);
     repairNodeLinks(son, that);
-    //*
     if(son->MT_parent->ST_next == that)
       son->MT_parent->ST_next = son;
     else
-      for (auto implicitSon : son->MT_parent->PT_sons)
-        if (implicitSon->ST_first == that)
-          implicitSon->ST_first = son;
+      doReplaceST_first(son->MT_parent->PT_sons, that, son);
     if(son->ST_next == son)
       son->ST_next = that;
     else
-      for (auto implicitSon : son->PT_sons)
-        if (implicitSon->ST_first == son)
-          implicitSon->ST_first = that; // */
+      doReplaceST_first(son->PT_sons, son, that);
     update(son, actualTime);
     update(that, actualTime);
     update(son, actualTime); // Because son can depend on that
