@@ -13,6 +13,14 @@
 #include <vector>
 
 namespace ttk {
+#define myAssert(x) //funcAssert(x, #x , __LINE__) 
+  void funcAssert(bool val, const char* str, int numLigne) {
+    if (!val) {
+      std::cerr << "ca plante ! " << str << " en ligne " << numLigne << endl;
+      std::cerr << ((MergeTreeLinkCutNode *)NULL)->actualMax->MT_sons.size();
+    }
+  }
+
   void doEraseOne(std::vector<MergeTreeLinkCutNode *> &theVec,
                   MergeTreeLinkCutNode *val) {
     switch(theVec.size()) {
@@ -178,6 +186,7 @@ namespace ttk {
       MergeTreeLinkCutNode *const y = x->ST_parent;
       if(y->ST_parent == 0) {
         // Move ST_first to the new root
+        myAssert(y->ST_first != NULL);
         x->ST_first = y->ST_first;
         y->ST_first = NULL;
         if(y->PT_parent != NULL) {
@@ -194,6 +203,7 @@ namespace ttk {
         MergeTreeLinkCutNode *const z = y->ST_parent;
         if(z->ST_parent == NULL) {
           // Move ST_first to the new root
+          myAssert(z->ST_first != NULL);
           x->ST_first = z->ST_first;
           z->ST_first = NULL;
           if(z->PT_parent != NULL) {
@@ -224,6 +234,7 @@ namespace ttk {
     splay(x, actualTime);
     if(x->ST_right) {
       // cut linked list
+      myAssert(x->ST_next != NULL);
       x->ST_right->ST_first = x->ST_next;
       x->ST_next = NULL;
 
@@ -243,6 +254,7 @@ namespace ttk {
       last = y;
       splay(y, actualTime);
       if(y->ST_right) {
+        myAssert(y->ST_next != NULL);
         y->ST_right->ST_first = y->ST_next;
         y->ST_next = NULL;
 
@@ -251,6 +263,7 @@ namespace ttk {
         y->ST_right->ST_parent = 0;
       }
       y->ST_right = x;
+      myAssert(x->ST_first != NULL);
       y->ST_next = x->ST_first;
       x->ST_first = NULL;
       x->ST_parent = y;
@@ -265,24 +278,20 @@ namespace ttk {
 
   MergeTreeLinkCutNode *root(MergeTreeLinkCutNode *x, const double actualTime) {
     access(x, actualTime);
-    while(x->ST_left)
-      x = x->ST_left;
-    splay(x, actualTime);
-    return x;
-    // Old ?
+    
     return x->ST_first;
   }
 
   void cut(MergeTreeLinkCutNode *const x, const double actualTime) {
     access(x, actualTime);
-    // assert(x->ST_left != NULL) // because x had a parent.
-    // assert(x->MT_parent != NULL) // because x had a parent.
+    myAssert(x->ST_left != NULL); // because x had a parent.
+    myAssert(x->MT_parent != NULL); // because x had a parent.
+    myAssert(x->ST_first != NULL);
+    x->ST_left->ST_first = x->ST_first;
     x->ST_first = x;
-    if(x->MT_parent->ST_next == x)
-      x->MT_parent->ST_next = NULL;
-    else
-      cerr << "WTF ? parent had no next"
-           << ((MergeTreeLinkCutNode *)NULL)->actualMax->MT_sons.size() << endl;
+    myAssert(x->MT_parent->ST_next == x);
+    x->MT_parent->ST_next = NULL;
+      
     x->ST_left->ST_parent = 0;
     x->ST_left = 0;
 
@@ -297,12 +306,14 @@ namespace ttk {
             const double actualTime) {
     access(x, actualTime);
     access(y, actualTime);
-    // assert(x->ST_left == NULL) // because x had no parent.
+    myAssert(x->ST_left == NULL); // because x had no parent.
     x->MT_parent = y;
     y->MT_sons.emplace_back(x);
 
     x->ST_left = y;
+    myAssert(y->ST_next == 0);
     y->ST_next = x;
+    myAssert(y->ST_first != 0);
     x->ST_first = y->ST_first;
     y->ST_first = NULL;
     y->ST_parent = x;
@@ -438,6 +449,17 @@ namespace ttk {
         (*node->MT_sons.begin())->MT_parent = node;
     }
 
+    /*
+    // Now for the hard ones
+    if(node->MT_parent->ST_next == other)
+      node->MT_parent->ST_next = node;
+    else
+      for (auto implicitSon : node->MT_parent->PT_sons)
+        if (implicitSon->ST_first == other) {
+          implicitSon->ST_first = node;
+          return;
+        } // */
+
     // we don't repair the values here : this can't be repaired easily
     // so we just update() the nodes afterwards.
   }
@@ -449,6 +471,8 @@ namespace ttk {
     std::swap(that->ST_parent, son->ST_parent);
     std::swap(that->ST_left, son->ST_left);
     std::swap(that->ST_right, son->ST_right);
+    std::swap(that->ST_next, son->ST_next);
+    std::swap(that->ST_first, son->ST_first);
     std::swap(that->PT_parent, son->PT_parent);
     std::swap(that->PT_sons, son->PT_sons);
     std::swap(that->MT_parent, son->MT_parent);
@@ -458,6 +482,19 @@ namespace ttk {
 
     repairNodeLinks(that, son);
     repairNodeLinks(son, that);
+    //*
+    if(son->MT_parent->ST_next == that)
+      son->MT_parent->ST_next = son;
+    else
+      for (auto implicitSon : son->MT_parent->PT_sons)
+        if (implicitSon->ST_first == that)
+          implicitSon->ST_first = son;
+    if(son->ST_next == son)
+      son->ST_next = that;
+    else
+      for (auto implicitSon : son->PT_sons)
+        if (implicitSon->ST_first == son)
+          implicitSon->ST_first = that; // */
     update(son, actualTime);
     update(that, actualTime);
     update(son, actualTime); // Because son can depend on that

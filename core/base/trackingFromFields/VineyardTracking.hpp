@@ -95,7 +95,7 @@ namespace ttk {
     }
 
     MergeTreeLinkCutNode()
-      : ST_parent(NULL), ST_left(NULL), ST_right(NULL), PT_parent(NULL),
+      : ST_parent(NULL), ST_left(NULL), ST_right(NULL), ST_next(NULL), ST_first(NULL), PT_parent(NULL),
         PT_sons(), MT_parent(NULL), MT_sons(), upperLink(), scalarStart(42.),
         scalarEnd(-42.), actualMax(NULL), PT_max(NULL), pairOfMax(NULL),
         actuSon() {
