@@ -51,26 +51,38 @@ int ttkTrackingFromFields::trackWithVineyards(
     = vtkSmartPointer<vtkDoubleArray>::New();
   vtkSmartPointer<vtkIntArray> matchTypeScalars
     = vtkSmartPointer<vtkIntArray>::New();
+  vtkSmartPointer<vtkIntArray> pairDimensionScalars
+    = vtkSmartPointer<vtkIntArray>::New();
   costScalars->SetName("Cost");
   matchTypeScalars->SetName("MatchType");
+  pairDimensionScalars->SetName("PairDimension");
 
   SimplexId nbNodes = triangulation->getNumberOfVertices();
   triangulation->preconditionVertexNeighbors();
-
-#ifndef NONOISE
+  std::vector<std::vector<double>> fields(2 * fieldNumber);
   srand(42); // Try 42 for bug at time 0.00996
-  for(int idFieldStart = 0; idFieldStart < fieldNumber; ++idFieldStart)
-    for(int i = 0; i < nbNodes; ++i)
-      ((double *)inputData_[idFieldStart])[i]
-        += (rand() - RAND_MAX / 2.) / (RAND_MAX * 1000.);
+  for(int idFieldStart = 0; idFieldStart < fieldNumber; ++idFieldStart) {
+    fields[idFieldStart].resize(nbNodes);
+    fields[fieldNumber + idFieldStart].resize(nbNodes);
+    for(int i = 0; i < nbNodes; ++i) {
+      fields[idFieldStart][i] = ((double *)inputData_[idFieldStart])[i]
+#ifndef NONOISE
+                                + (rand() - RAND_MAX / 2.) / (RAND_MAX * 1.e9)
 #endif
+        ;
+      fields[fieldNumber + idFieldStart][i] = -fields[idFieldStart][i];
+    }
+  }
 
   double globalCost = 0.0;
   omp_set_num_threads(fieldNumber - 1);
 #pragma omp parallel for
-  for(int idFieldStart = 0; idFieldStart < fieldNumber - 1; ++idFieldStart) {
-    auto res = ttk::buildTree(triangulation, (double *)inputData_[idFieldStart],
-                              (double *)inputData_[idFieldStart + 1]);
+  for(int idFieldStart = 0; idFieldStart < 2 * fieldNumber - 1;
+      ++idFieldStart) {
+    if(idFieldStart == fieldNumber)
+      continue;
+    auto res = ttk::buildTree(
+      triangulation, fields[idFieldStart], fields[idFieldStart + 1]);
     auto &nodesVec = res.first;
     ttk::EventQueue &events = res.second;
 
@@ -106,8 +118,8 @@ int ttkTrackingFromFields::trackWithVineyards(
           end, endCoord[0], endCoord[1], endCoord[2]);
 
         if(UseGeometricSpacing) {
-          startCoord[2] += Spacing * (idFieldStart);
-          endCoord[2] += Spacing * (idFieldStart + 1);
+          startCoord[2] += Spacing * (idFieldStart % fieldNumber);
+          endCoord[2] += Spacing * (idFieldStart % fieldNumber + 1);
         }
         points->InsertNextPoint(startCoord[0], startCoord[1], startCoord[2]);
         points->InsertNextPoint(endCoord[0], endCoord[1], endCoord[2]);
@@ -115,6 +127,8 @@ int ttkTrackingFromFields::trackWithVineyards(
           = {points->GetNumberOfPoints() - 2, points->GetNumberOfPoints() - 1};
         persistenceDiagram->InsertNextCell(VTK_LINE, 2, line);
         matchTypeScalars->InsertNextTuple1(typeOfMatch);
+        pairDimensionScalars->InsertNextTuple1(
+          (idFieldStart < fieldNumber) ? 0 : 2);
         double costSquared = (startPair.first - endPair.first)
                                * (startPair.first - endPair.first)
                              + (startPair.second - endPair.second)
@@ -142,7 +156,7 @@ int ttkTrackingFromFields::trackWithVineyards(
         auto stp = it.second;
         double middle = (stp.first + stp.second) / 2.;
         std::pair<double, double> endPair{middle, middle};
-        addPair(-1, it.first, stp, endPair);
+        addPair(it.first, -1, stp, endPair);
       }
       std::cout << "Local cost for match " << idFieldStart << " : "
                 << globalCost << std::endl;

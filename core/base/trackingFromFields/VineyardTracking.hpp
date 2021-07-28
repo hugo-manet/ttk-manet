@@ -139,8 +139,8 @@ namespace ttk {
   // TODO have a -inf node
   std::pair<std::vector<MergeTreeLinkCutNode>, EventQueue>
     buildTree(const AbstractTriangulation *grid,
-              double *scalarsStart,
-              double *scalarsEnd);
+              std::vector<double> &scalarsStart,
+              std::vector<double> &scalarsEnd);
 
   void loopQueue(EventQueue &swapQueue);
 

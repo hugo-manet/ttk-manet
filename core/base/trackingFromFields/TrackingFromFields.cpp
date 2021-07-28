@@ -70,8 +70,9 @@ namespace ttk {
   }
   constexpr double crossTimeSwapped(const MergeTreeLinkCutNode *const son,
                                     const MergeTreeLinkCutNode *const parent) {
-#define DENOM \
-  (parent->scalarEnd - parent->scalarStart - son->scalarEnd + son->scalarStart)
+#define DENOM                           \
+  ((parent->scalarEnd - son->scalarEnd) \
+   - (parent->scalarStart - son->scalarStart))
 #define REALCROSS ((son->scalarStart - parent->scalarStart) / DENOM)
     return (DENOM != 0.)
              ? ((0. <= REALCROSS && REALCROSS <= 2.) ? REALCROSS : 2.)
@@ -79,9 +80,6 @@ namespace ttk {
   }
   constexpr double crossTime(const MergeTreeLinkCutNode *const son,
                              const MergeTreeLinkCutNode *const parent) {
-#define DENOM \
-  (parent->scalarEnd - parent->scalarStart - son->scalarEnd + son->scalarStart)
-#define REALCROSS ((son->scalarStart - parent->scalarStart) / DENOM)
     return (son->scalarStart > parent->scalarStart)
              ? crossTimeSwapped(son, parent)
              : crossTimeSwapped(parent, son);
@@ -92,14 +90,22 @@ namespace ttk {
     return crossTime(son, parent);
   }
 
-  void setMaxFinal(MergeTreeLinkCutNode *&dest,
-                   const MergeTreeLinkCutNode *const option,
-                   const double actualTime) {
-    const double dVal = getVal(dest, actualTime),
-                 oVal = getVal(option->actualMax, actualTime);
+  void setMaxEnd(MergeTreeLinkCutNode *&dest,
+                 const MergeTreeLinkCutNode *const option) {
+    const double dVal = dest->scalarEnd, oVal = option->actualMax->scalarEnd;
+
+    if(dVal < oVal || (dVal == oVal && dest > option->actualMax))
+      dest = option->actualMax;
+  }
+  void setMaxStart(MergeTreeLinkCutNode *&dest,
+                   const MergeTreeLinkCutNode *const option) {
+    const double dVal = dest->scalarStart,
+                 oVal = option->actualMax->scalarStart;
 
     if(dVal < oVal)
       dest = option->actualMax;
+    else if(dVal == oVal)
+      setMaxEnd(dest, option);
   }
   void setMax(MergeTreeLinkCutNode *&dest,
               const MergeTreeLinkCutNode *const option,
@@ -112,13 +118,13 @@ namespace ttk {
       double cT = crossTime(dest, option->actualMax);
       if(cT != 2) {
         if(cT < actualTime) // <= ?
-          setMaxFinal(dest, option, 1.);
+          setMaxEnd(dest, option);
         else
-          setMaxFinal(dest, option, 0.);
+          setMaxStart(dest, option);
         return;
       }
     }
-    if(dVal < oVal)
+    if(dVal < oVal || (dVal == oVal && dest > option->actualMax))
       dest = option->actualMax;
   }
 
@@ -626,8 +632,8 @@ namespace ttk {
 
   std::pair<std::vector<MergeTreeLinkCutNode>, EventQueue>
     buildTree(const AbstractTriangulation *grid,
-              double *scalarsStart,
-              double *scalarsEnd) {
+              std::vector<double> &scalarsStart,
+              std::vector<double> &scalarsEnd) {
     std::pair<std::vector<MergeTreeLinkCutNode>, EventQueue> returnVals;
     EventQueue &swapQueue = returnVals.second;
     const double actualTime = 0.;
@@ -640,11 +646,12 @@ namespace ttk {
       insertOrder[i] = i;
     auto compareIdx = [&](SimplexId a, SimplexId b) -> bool {
       return (scalarsStart[a] != scalarsStart[b])
-               ? scalarsStart[a] < scalarsStart[b]
-               : a < b;
+               ? scalarsStart[a] > scalarsStart[b]
+               : (scalarsEnd[a] != scalarsEnd[b])
+                   ? scalarsEnd[a] > scalarsEnd[b]
+                   : a < b;
     };
     std::sort(insertOrder.begin(), insertOrder.end(), compareIdx);
-    std::reverse(insertOrder.begin(), insertOrder.end());
 
     double globMin = -1., globMax = 1.;
     auto globRoot = &treeData[nbNodes];
@@ -669,7 +676,7 @@ namespace ttk {
       for(int iNeigh = 0; iNeigh < grid->getVertexNeighborNumber(idNode);
           ++iNeigh) {
         grid->getVertexNeighbor(idNode, iNeigh, neigh);
-        if(compareIdx(idNode, neigh)) {
+        if(compareIdx(neigh, idNode)) {
 
 #ifdef DEBUGTREE
           std::cout << "iNeigh " << iNeigh
